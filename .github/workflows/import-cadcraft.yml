@@ -2,6 +2,10 @@ name: Import CADCraft source
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/import-cadcraft.yml"
 
 permissions:
   contents: write
