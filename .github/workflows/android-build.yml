@@ -8,6 +8,7 @@ on:
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
+      - "README.md"
   workflow_dispatch:
 
 permissions:
