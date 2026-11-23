@@ -93,3 +93,5 @@ Important limits of this checkpoint:
 - DWG worker support is not enabled or claimed.
 - Responsive phone/tablet layout and real-device GPU/lifecycle validation remain outstanding.
 - The workflow artifact is the first build gate; the resulting APK must be checked before calling the shell build successful.
+
+The Android PR build workflow is also installed on the base branch so GitHub Actions can evaluate pull requests. The PR head was updated after installing the workflow to request the first CI run.
