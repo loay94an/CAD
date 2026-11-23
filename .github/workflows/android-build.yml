@@ -8,6 +8,13 @@ on:
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/cadcraft-android/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
   workflow_dispatch:
 
 permissions:
