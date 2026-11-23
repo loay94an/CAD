@@ -74,3 +74,22 @@ Why GameActivity: eframe exposes android-game-activity, and its current source d
 - Do not remove original desktop/web apps.
 - Do not silently drop file-format capabilities.
 - Do not claim DWG support, smooth GPU performance or a working APK based only on a successful Rust compile.
+
+
+## Implementation checkpoint — Android shell scaffold
+
+The following files now exist under `apps/cadcraft-android/` on `feat/android-phone-tablet`:
+
+- A separate Rust `cdylib` package with an Android GameActivity entry point.
+- A thin eframe host that constructs the original `CadApp(Session::new(), Services::default())`, forwards logic/input/UI to it, and installs the original CAD IO codecs.
+- Android manifest and Java GameActivity launcher.
+- Gradle app configuration restricted to `arm64-v8a`.
+- A local build script and an Android debug-APK GitHub Actions workflow.
+
+Important limits of this checkpoint:
+
+- The scaffold has been committed, but a successful Android compile/APK has **not yet been verified**.
+- SAF document picking and URI-backed open/save are not connected; the host currently uses default empty services.
+- DWG worker support is not enabled or claimed.
+- Responsive phone/tablet layout and real-device GPU/lifecycle validation remain outstanding.
+- The workflow artifact is the first build gate; the resulting APK must be checked before calling the shell build successful.
