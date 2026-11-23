@@ -54,6 +54,31 @@ jobs:
       - name: Assemble APK
         working-directory: apps/cadcraft-android
         run: gradle --no-daemon assembleDebug
+      - name: Validate APK package
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import zipfile
+
+          apk = pathlib.Path("apps/cadcraft-android/app/build/outputs/apk/debug/app-debug.apk")
+          if not apk.is_file() or apk.stat().st_size < 10_000_000:
+              raise SystemExit("APK is missing or unexpectedly small")
+          with zipfile.ZipFile(apk) as package:
+              names = set(package.namelist())
+              if "AndroidManifest.xml" not in names:
+                  raise SystemExit("APK has no AndroidManifest.xml")
+              if not any(name.startswith("classes") and name.endswith(".dex") for name in names):
+                  raise SystemExit("APK has no DEX bytecode")
+              native = {name for name in names if name.startswith("lib/") and name.endswith(".so")}
+              if "lib/arm64-v8a/libmain.so" not in native:
+                  raise SystemExit("APK is missing the ARM64 CADCraft native library")
+              if any(not name.startswith("lib/arm64-v8a/") for name in native):
+                  raise SystemExit(f"Unexpected native ABI in APK: {sorted(native)}")
+              bad = package.testzip()
+              if bad:
+                  raise SystemExit(f"Corrupt APK entry: {bad}")
+          print(f"Validated {apk} ({apk.stat().st_size} bytes)")
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: cadcraft-android-arm64-debug
