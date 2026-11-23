@@ -1,6 +1,6 @@
 # Android phone + tablet port plan
 
-Status: architecture and compatibility assessment only. No production source files have been changed.
+Status: Android ARM64 debug APK builds successfully in CI. Package structure is verified; device runtime, mobile UX, and Android document access remain unverified/incomplete.
 
 ## Goal
 
@@ -88,10 +88,27 @@ The following files now exist under `apps/cadcraft-android/` on `feat/android-ph
 
 Important limits of this checkpoint:
 
-- The scaffold has been committed, but a successful Android compile/APK has **not yet been verified**.
+- Android ARM64 debug APK build was verified by GitHub Actions run #17 and run #18; run #18 (`623712d`) completed successfully and its APK ZIP/package contents were inspected.
 - SAF document picking and URI-backed open/save are not connected; the host currently uses default empty services.
 - DWG worker support is not enabled or claimed.
 - Responsive phone/tablet layout and real-device GPU/lifecycle validation remain outstanding.
-- The workflow artifact is the first build gate; the resulting APK must be checked before calling the shell build successful.
+- CI now checks the produced APK for its manifest, DEX bytecode, ARM64 `libmain.so`, unexpected native ABIs, and ZIP integrity before publishing the artifact. This is a packaging gate only, not a device runtime test.
 
 The Android PR build workflow is also installed on the base branch so GitHub Actions can evaluate pull requests. The PR head was updated after installing the workflow to request the first CI run.
+
+
+## Verified build checkpoint — 2026-11-24
+
+- GitHub Actions run #18: [45291444858](https://github.com/loay94an/CAD/actions/runs/45291444858), commit `623712d264c36cb6d081dbc2b90b70cc86fab797`, completed successfully.
+- Artifact: `cadcraft-android-arm64-debug`, artifact ID `14874273475`.
+- Downloaded APK size: 76,742,935 bytes.
+- ZIP integrity: passed; manifest and DEX files present; `lib/arm64-v8a/libmain.so` present; ARM64 is the only packaged native ABI.
+- APK SHA-256: `5025887ff99af8ca448e6396f68c93332d27d71181d36c7e151e80f755df0c03`.
+- No installation or runtime test on a physical Android device has been completed. Do not describe the app as device-tested or feature-complete.
+
+## Next implementation order
+
+1. Add Android Storage Access Framework integration with asynchronous URI selection and byte-stream read/write. The current engine file hooks and path-oriented opening flow need an adapter; a Java picker alone is insufficient.
+2. Add Android-specific compact phone and expanded tablet presentation without changing shared CAD commands or document semantics.
+3. Validate touch gestures and stylus behavior, Arabic shaping/RTL, and Android pause/resume/rotation.
+4. Exercise core drawing operations and DXF round-trip on actual Android hardware; treat DWG as unsupported until its worker/bridge is independently validated.
