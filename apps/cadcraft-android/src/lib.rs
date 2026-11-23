@@ -10,7 +10,7 @@ struct AndroidShell(CadApp);
 
 impl eframe::App for AndroidShell {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.0.guarded_logic(ctx);
+        self.0.logic(ctx);
     }
 
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
@@ -19,7 +19,7 @@ impl eframe::App for AndroidShell {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        self.0.guarded_ui(ui);
+        self.0.ui(ui);
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
