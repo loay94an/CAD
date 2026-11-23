@@ -19,4 +19,4 @@ eframe = { workspace = true, features = ["default_fonts", "wgpu", "android-game-
 egui = { workspace = true }
 log = { workspace = true }
 android_logger = "0.15"
-winit = { version = "0.30", default-features = false }
+winit = { version = "0.30", default-features = false, features = ["android-game-activity"] }
