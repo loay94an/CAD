@@ -21,6 +21,6 @@ From the repository root, with Rust 1.95+, Android SDK/NDK, Java 17, and cargo-n
 
 The debug APK is written to app/build/outputs/apk/debug/app-debug.apk.
 
-The GitHub Actions workflow `.github/workflows/android-build.yml` builds the arm64-v8a debug APK and publishes it as the `cadcraft-android-arm64-debug` artifact when the build succeeds.
+The GitHub Actions workflow `.github/workflows/android-build.yml` builds the arm64-v8a debug APK and publishes it as the `cadcraft-android-arm64-debug` artifact when the build succeeds. Pull-request builds are enabled for changes under `apps/cadcraft-android/**`, `crates/**`, and the workspace manifests.
 
 This first shell is an integration milestone, not a feature-complete mobile release. Do not treat the APK as device-validated until it has been installed and tested on Android hardware.
