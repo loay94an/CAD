@@ -22,4 +22,5 @@ android {
 
 dependencies {
     implementation("androidx.games:games-activity:4.4.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }
