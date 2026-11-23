@@ -1,0 +1,22 @@
+[package]
+name = "cadcraft-android"
+description = "CADCraft Android application (phone and tablet)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version = "1.95"
+publish = false
+
+[lib]
+name = "main"
+crate-type = ["cdylib"]
+
+[dependencies]
+cadcraft-engine = { workspace = true }
+cadcraft-ui-egui = { workspace = true }
+cadcraft-io = { workspace = true }
+eframe = { workspace = true, features = ["default_fonts", "wgpu", "android-game-activity"] }
+egui = { workspace = true }
+log = { workspace = true }
+android_logger = "0.15"
+winit = { version = "0.30", default-features = false }
