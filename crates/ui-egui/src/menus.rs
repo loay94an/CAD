@@ -793,18 +793,27 @@ pub fn menu_bar(app: &mut CadApp, ui: &mut egui::Ui) {
     egui::Panel::top("cc_menubar").exact_size(22.0).frame(egui::Frame::NONE.fill(t.chrome_dark).inner_margin(egui::Margin::symmetric(6, 0))).show(
         ui,
         |ui| {
-            egui::MenuBar::new().ui(ui, |ui| {
-                // Titles first, so a hovered title can take over before any menu is drawn.
-                let titles: Vec<egui::Response> = tree.iter().map(|(name, _)| ui.add(egui::Button::new(crate::i18n::menu(name)))).collect();
-                switch_on_hover(ui.ctx(), &titles);
-                for ((_, entries), title) in tree.iter().zip(&titles) {
-                    egui::Popup::menu(title).show(|ui| {
-                        for e in entries {
-                            entry_ui(ui, e, &mut clicked);
-                        }
-                    });
-                }
-            });
+            let mut draw_menus = |ui: &mut egui::Ui| {
+                egui::MenuBar::new().ui(ui, |ui| {
+                    // Titles first, so a hovered title can take over before any menu is drawn.
+                    let titles: Vec<egui::Response> = tree.iter().map(|(name, _)| ui.add(egui::Button::new(crate::i18n::menu(name)))).collect();
+                    switch_on_hover(ui.ctx(), &titles);
+                    for ((_, entries), title) in tree.iter().zip(&titles) {
+                        egui::Popup::menu(title).show(|ui| {
+                            for e in entries {
+                                entry_ui(ui, e, &mut clicked);
+                            }
+                        });
+                    }
+                });
+            };
+            if cfg!(target_os = "android") {
+                // The desktop menu row is wider than a phone. Keep every menu reachable by
+                // horizontal scrolling instead of painting titles beyond the right screen edge.
+                egui::ScrollArea::horizontal().id_salt("cc_menubar_phone").show(ui, |ui| draw_menus(ui));
+            } else {
+                draw_menus(ui);
+            }
         },
     );
     if let Some(id) = clicked {
