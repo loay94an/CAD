@@ -52,7 +52,7 @@ jobs:
         with:
           workspaces: ". -> target"
       - name: Run canvas touch input regression tests
-        run: cargo test --locked -p cadcraft-ui-egui --lib canvas::
+        run: "cargo test --locked -p cadcraft-ui-egui --lib canvas::"
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
       - name: Build native library
