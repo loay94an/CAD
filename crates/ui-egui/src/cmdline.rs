@@ -476,10 +476,20 @@ fn visible_lines(app: &CadApp, canvas: Rect, bar: Rect) -> usize {
     app.ui.history_lines.min(MAX_LINES).min(available)
 }
 
-/// Draw the floating command bar and its history over the bottom-centre of `canvas`; the bar is 48 % of the canvas width, clamped to 360–760 points and never wider than the canvas minus 8 points.
+/// Keep the command console usable on narrow Android viewports without changing desktop sizing.
+fn command_bar_width(canvas_width: f32, compact: bool) -> f32 {
+    let available = (canvas_width - 8.0).max(0.0);
+    if compact {
+        available.min((canvas_width * 0.94).max(0.0))
+    } else {
+        (canvas_width * 0.48).clamp(360.0, 760.0).min(available)
+    }
+}
+
+/// Draw the floating command bar and its history over the bottom-centre of `canvas`.
 pub fn show(app: &mut CadApp, ui: &mut egui::Ui, canvas: Rect) {
     let t = Tokens::get();
-    let w = (canvas.width() * 0.48).clamp(360.0, 760.0).min((canvas.width() - 8.0).max(0.0));
+    let w = command_bar_width(canvas.width(), cfg!(target_os = "android"));
     let h = 24.0;
     let bar = Rect::from_min_size(pos2(canvas.center().x - w / 2.0, canvas.bottom() - h - 10.0), vec2(w, h));
     let p = ui.painter_at(canvas);
@@ -749,6 +759,14 @@ mod tests {
     use egui::{Event, PointerButton};
 
     #[test]
+    fn command_bar_fits_narrow_android_canvas() {
+        let width = super::command_bar_width(300.0, true);
+        assert!(width > 0.0 && width <= 292.0, "command bar width: {width}");
+        assert!((width - 282.0).abs() < f32::EPSILON);
+        assert_eq!(super::command_bar_width(300.0, false), 292.0);
+    }
+
+    #[test]
     fn compact_canvas_contains_history_controls_without_changing_line_preference() {
         let mut app = CadApp::new(Session::empty(), crate::Services::default());
         app.ui.history_lines = 12;
@@ -756,7 +774,7 @@ mod tests {
             app.session.echo(format!("line {i}"));
         }
         let canvas = Rect::from_min_size(Pos2::ZERO, vec2(300.0, 180.0));
-        let w = (canvas.width() * 0.48).clamp(360.0, 760.0).min((canvas.width() - 8.0).max(0.0));
+        let w = command_bar_width(canvas.width(), cfg!(target_os = "android"));
         let bar = Rect::from_min_size(pos2(canvas.center().x - w / 2.0, canvas.bottom() - 34.0), vec2(w, 24.0));
         let z = zones(&app, canvas, bar);
         assert!(canvas.contains_rect(bar));
@@ -876,7 +894,7 @@ mod tests {
         frame(&mut app, &ctx, Vec::new());
         frame(&mut app, &ctx, Vec::new());
         let canvas = app.canvas.rect.unwrap_or(Rect::NOTHING);
-        let w = (canvas.width() * 0.48).clamp(360.0, 760.0).min((canvas.width() - 8.0).max(0.0));
+        let w = command_bar_width(canvas.width(), cfg!(target_os = "android"));
         let bar = Rect::from_min_size(pos2(canvas.center().x - w / 2.0, canvas.bottom() - 34.0), vec2(w, 24.0));
         let z = zones(&app, canvas, bar);
         let Some(lines) = z.lines else { panic!("three history lines show by default") };
