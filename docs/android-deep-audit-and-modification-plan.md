@@ -264,3 +264,49 @@
 - لا يوجد في هذا التدقيق ما يبرر وصف التطبيق بأنه مكتمل أو جاهز للإصدار.
 
 **القرار:** ابدأ M0 inventory الآلي ثم M1 SAF وM2 touch؛ لا تبدأ إعادة تصميم عشوائية ولا تغيّر المحرك الأصلي. احتفظ بمحرك CADCraft كمصدر الحقيقة، واجعل Android host مسؤولاً عن خدمات النظام وتجربة اللمس والتخطيط.
+
+
+---
+
+## 9. سجل التنفيذ الفعلي — 2026-11-24
+
+### التعديل الأول: إلغاء اللمسة لا يساوي رفع الإصبع
+- الملفات: `crates/ui-egui/src/canvas/press.rs` و`crates/ui-egui/src/canvas.rs`.
+- قبل الإصلاح: `TouchPhase::Cancel` كان يتحول إلى `Step::Up` مثل `TouchPhase::End`.
+- بعد الإصلاح: تمت إضافة `Step::Cancel` مستقل، ويمسح الضغط الجاري دون تشغيل مسار release/grip/window completion.
+- اختبار regression جديد: `native_touch_cancel_is_not_a_release`.
+- Commits:
+  - `98456757e12f5ba33f46ed32a43fba590c7e4d90`
+  - `dda658491d661c54cd4a1a569f367345ce25d0c5`
+
+### تحسين التحقق الآلي
+- أضيفت خطوة إلى `.github/workflows/android-build.yml` لتشغيل:
+  `cargo test -p cadcraft-ui-egui --lib canvas::press::tests`
+  قبل بناء APK.
+- Commit: `b2a26f42402ea572fb56a4ed0cfc61ca89d6159e`.
+- Workflow run: https://github.com/loay94an/CAD/actions/runs/45306771988
+- عند تحديث هذا السجل كان التشغيل قيد التنفيذ؛ لا تسجل نجاح الاختبار أو APK قبل ظهور نتيجة مكتملة.
+
+### ما بقي في M2
+- اختبار سلوك الإلغاء بعد بداية أمر تفاعلي؛ لأن نمط المحرك يطبق بعض النقرات على Down، وليس فقط على Up.
+- اختبار TouchId عند وجود أكثر من إصبع، والانتقال بين single-touch وmulti-touch.
+- اختبار end-to-end على Android فعلي، وليس اختبار تحويل الأحداث وحده.
+
+### M1 — SAF
+- لم يُنفذ جسر SAF بعد.
+- ثبت أن Android يمرر `Services::default()`، وأن `Services::start_pick` هو مسار اختيار الملفات غير المتزامن القابل لإعادة الاستخدام.
+- لا يجوز تمرير Content URI إلى `Path`؛ لأن `opening::Opening` و`engine::cmd::file` يقرآن المسارات عبر filesystem، كما أن الحفظ والنسخ الاحتياطي يعتمدان عمليات ملفات ذرية.
+- يلزم تصميم Android document adapter يغطي القراءة والكتابة والملفات التابعة (Xrefs/images/fonts/scripts)، لا مجرد إضافة Intent إلى Java.
+
+### حالة التنفيذ بعد أول إصلاح
+- [x] تمييز Touch Cancel عن Touch End في event mapping.
+- [x] منع Cancel من إنهاء pending press كأنه release.
+- [x] إضافة اختبار regression لوصول Cancel.
+- [x] إضافة اختبار اللمس إلى Android CI.
+- [ ] انتظار نتيجة CI على commit الحالي.
+- [ ] بناء SAF document adapter.
+- [ ] استكمال اختبارات multi-touch والرسم.
+- [ ] تنفيذ واجهة الهاتف والتابلت.
+- [ ] اختبار جهاز فعلي.
+
+**ملاحظة:** هذا سجل تقدم مرحلي، ولا يعني اكتمال التحويل أو صلاحية APK للاستخدام النهائي.
