@@ -472,3 +472,47 @@ fn the_cycling_badge_follows_the_frozen_layers_under_a_resting_pointer() {
     app.session.execute("vplayer", &serde_json::json!({ "handles": [b], "thaw": ["Hidden"] })).unwrap();
     assert!(badge(&mut app, &ctx), "thawed in the viewport: two lines are under the cursor again");
 }
+
+#[test]
+fn native_touch_tap_is_committed_on_release_without_waiting_for_delay() {
+    let at = egui::pos2(12.0, 18.0);
+    let mut pending = None;
+    let steps = normalize_touch_steps(
+        vec![press::Step::TouchDown(at), press::Step::TouchUp(at)],
+        &mut pending,
+        1.0,
+        egui::Modifiers::NONE,
+    );
+    assert_eq!(steps, vec![press::Step::Down(at, egui::Modifiers::NONE), press::Step::Up(at)]);
+    assert!(pending.is_none());
+}
+
+#[test]
+fn native_touch_move_is_buffered_until_single_finger_gesture_is_recognized() {
+    let origin = egui::pos2(12.0, 18.0);
+    let moved = egui::pos2(30.0, 44.0);
+    let mut pending = None;
+    let first = normalize_touch_steps(
+        vec![press::Step::TouchDown(origin), press::Step::TouchMove(moved)],
+        &mut pending,
+        1.0,
+        egui::Modifiers::NONE,
+    );
+    assert!(first.is_empty(), "a first contact must not immediately reach the CAD engine");
+    assert_eq!(pending.map(|p| p.latest), Some(Some(moved)));
+
+    let second = normalize_touch_steps(Vec::new(), &mut pending, 1.0 + TOUCH_GESTURE_DELAY, egui::Modifiers::NONE);
+    assert_eq!(second, vec![press::Step::Down(origin, egui::Modifiers::NONE), press::Step::Move(moved)]);
+    assert!(pending.is_none());
+}
+
+#[test]
+fn native_touch_cancel_discards_a_buffered_first_contact() {
+    let origin = egui::pos2(12.0, 18.0);
+    let mut pending = None;
+    let _ = normalize_touch_steps(vec![press::Step::TouchDown(origin)], &mut pending, 1.0, egui::Modifiers::NONE);
+    let cancelled = normalize_touch_steps(vec![press::Step::TouchCancel], &mut pending, 1.05, egui::Modifiers::NONE);
+    assert_eq!(cancelled, vec![press::Step::Cancel]);
+    assert!(pending.is_none());
+}
+
