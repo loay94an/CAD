@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.100.0
+      - uses: dtolnay/rust-toolchain@1.95.0
         with:
           targets: aarch64-linux-android
       - uses: actions/setup-java@v4
@@ -52,15 +52,15 @@ jobs:
         with:
           workspaces: ". -> target"
       - name: Verify engine command registry inventory
-        run: cargo test --locked -p cadcraft-engine --lib command_registry_has_389_unique_ids
+        run: cargo test -p cadcraft-engine --lib command_registry_has_389_unique_ids
       - name: Verify UI-only command inventory
-        run: cargo test --locked -p cadcraft-ui-egui --lib ui_command_ids_are_unique_and_match_the_source_index
+        run: cargo test -p cadcraft-ui-egui --lib ui_command_ids_are_unique_and_match_the_source_index
       - name: Run canvas touch input regression tests
         run: "cargo test -p cadcraft-ui-egui --lib canvas::"
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
       - name: Build native library
-        run: cargo ndk -t arm64-v8a -o apps/cadcraft-android/app/src/main/jniLibs build --release --locked -p cadcraft-android
+        run: cargo ndk -t arm64-v8a -o apps/cadcraft-android/app/src/main/jniLibs build --release -p cadcraft-android
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
