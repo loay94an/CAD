@@ -411,3 +411,18 @@
 - Commit تصحيح العدد وإضافة `dimspace` الذي كان ناقصاً في النسخة الأولى: `30f51a386855575582f5a2b2cc771a0ca8766457`.
 - هذا يغلق جرد أسماء المصدر المباشر فقط؛ لا يغلق runtime inventory ولا يربط كل handler/parameter/test حتى الآن.
 - الرابط: https://github.com/loay94an/CAD/blob/feat/android-phone-tablet/docs/android-command-source-index.md
+
+
+### إغلاق جرد التسجيلات على مستوى المصدر والـ registry
+- أثبت تتبع `command_specs()` أنه يضم 387 تصريحاً مباشراً + `file::alias_specs()` (أمران من `pgp.rs`) = **389 أمر محرك** وفق بنية التسجيل الحالية.
+- `menus.rs::UI_COMMANDS` يحتوي **60 إجراء واجهة فقط** منفصلاً عن CommandSpec.
+- أضيف إلى فهرس المصدر القسمان الخاصان بأمري PGP وإجراءات الواجهة الستين.
+- أضيف اختبار في `crates/engine/src/cmd.rs` للتحقق من 389 ID وعدم التكرار.
+- أضيف اختبار في `crates/ui-egui/src/menus.rs` للتحقق من 60 UI ID وعدم التكرار.
+- أضيفت خطوتا الاختبار إلى Android workflow، بالإضافة إلى اختبارات canvas.
+- Commits:
+  - `6796438c39d5ae9691762a2b333fdcab41571b34`
+  - `c7eb32b85b598c9d89fbc2f8bf547c50ccd16425`
+  - `614caa6e90731d5a3479df85d3001b7a71bd5bf3`
+  - `c74a7f8058e8dd130fda7f0b853c3a6e36f9073b`
+- **M0 source/registry count:** اكتمل العدّ والتفرّد كاختبارات مصدر، لكن ربط handler/parameters/interactive prompts/UI reachability/Android dependencies لكل ID ما زال مفتوحاً.
