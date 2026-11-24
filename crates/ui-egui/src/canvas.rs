@@ -99,6 +99,18 @@ fn same_content(a: &ListKey, b: &ListKey) -> bool {
     (a.0, a.1, a.4, a.5, a.6, a.7) == (b.0, b.1, b.4, b.5, b.6, b.7)
 }
 
+#[derive(Clone, Copy, Debug)]
+struct PendingTouch {
+    origin: Pos2,
+    latest: Option<Pos2>,
+    started_at: f64,
+    modifiers: egui::Modifiers,
+}
+
+/// Give Android a short window to recognize a two-finger navigation gesture before committing
+/// the first contact as a CAD point. A tap is still committed on its release.
+const TOUCH_GESTURE_DELAY: f64 = 0.14;
+
 #[derive(Default)]
 pub struct CanvasState {
     pub list: Option<DisplayList>,
@@ -182,6 +194,8 @@ pub struct CanvasState {
     hover_frozen: Vec<String>,
     /// Constraint glyphs for the parametric overlay (cached per drawing revision).
     pub param: crate::parametric::Cache,
+    /// A native Android contact waiting briefly to distinguish a tap/draw from a two-finger gesture.
+    touch_pending: Option<PendingTouch>,
     /// The primary-button press being held, when it was acted on (see [`press`]).
     press: Option<press::Press>,
     /// The right-click that opened the shortcut menu held Shift or Ctrl: it is the object snap
@@ -764,7 +778,55 @@ struct PressContext {
 /// handled here was released this frame (its click must not count again).
 fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bool {
     let PressContext { rect, xf, inside, middle_down, mods, grip_clicks } = *context;
-    let (steps, now, primary_down) = ui.input(|i| (press::steps(&i.events), i.time, i.pointer.primary_down()));
+    let (raw_steps, now, primary_down) = ui.input(|i| (press::steps(&i.events), i.time, i.pointer.primary_down()));
+    // Normalize native touch separately from mouse input. The first Android contact is buffered
+    // briefly: if a second finger appears, show() cancels it before any CAD point reaches Session.
+    let mut steps = Vec::with_capacity(raw_steps.len() + 2);
+    let has_touch_cancel = raw_steps.iter().any(|step| matches!(step, press::Step::TouchCancel));
+    if has_touch_cancel {
+        app.canvas.touch_pending = None;
+    } else if let Some(pending) = app.canvas.touch_pending
+        && now - pending.started_at >= TOUCH_GESTURE_DELAY
+    {
+        app.canvas.touch_pending = None;
+        steps.push(press::Step::Down(pending.origin, pending.modifiers));
+        if let Some(latest) = pending.latest {
+            steps.push(press::Step::Move(latest));
+        }
+    }
+    for step in raw_steps {
+        match step {
+            press::Step::TouchDown(pos) => {
+                app.canvas.touch_pending = Some(PendingTouch {
+                    origin: pos,
+                    latest: None,
+                    started_at: now,
+                    modifiers: mods,
+                });
+            }
+            press::Step::TouchMove(pos) => {
+                if let Some(pending) = &mut app.canvas.touch_pending {
+                    pending.latest = Some(pos);
+                } else {
+                    steps.push(press::Step::Move(pos));
+                }
+            }
+            press::Step::TouchUp(pos) => {
+                if let Some(pending) = app.canvas.touch_pending.take() {
+                    steps.push(press::Step::Down(pending.origin, pending.modifiers));
+                    if let Some(latest) = pending.latest {
+                        steps.push(press::Step::Move(latest));
+                    }
+                }
+                steps.push(press::Step::Up(pos));
+            }
+            press::Step::TouchCancel => {
+                app.canvas.touch_pending = None;
+                steps.push(press::Step::Cancel);
+            }
+            other => steps.push(other),
+        }
+    }
     let mut click_used = false;
     for step in steps {
         match step {
@@ -941,8 +1003,9 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
     let grip_clicks = !hatch_dialog && !idle_double;
     let touch_active = ui.input(|i| i.multi_touch().is_some());
     if touch_active {
-        // A second finger changes the interaction from drawing to view navigation. Drop any
-        // pending one-finger press so lifting either finger cannot commit an accidental point.
+        // A second finger changes the interaction from drawing to view navigation. Drop both the
+        // buffered first contact and any already active press; neither finger may commit a point.
+        app.canvas.touch_pending = None;
         app.canvas.press = None;
     }
     let click_used = if touch_active {
