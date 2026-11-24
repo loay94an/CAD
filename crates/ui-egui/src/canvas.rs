@@ -280,7 +280,7 @@ fn navigate_canvas(app: &mut CadApp, ui: &mut egui::Ui, nav: &Navigation<'_>) ->
     let p = nav.pointer;
     let touch = ui.input(|i| i.multi_touch());
     let touch_active = touch.is_some();
-    let gesture_pos = touch.map(|touch| touch.center_pos).or(p.hover_pos);
+    let gesture_pos = touch.as_ref().map(|touch| touch.center_pos).or(p.hover_pos);
     let inside = gesture_pos.is_some_and(|at| {
         nav.rect.contains(at)
             && ui.ctx().layer_id_at(at) == Some(ui.layer_id())
@@ -289,7 +289,7 @@ fn navigate_canvas(app: &mut CadApp, ui: &mut egui::Ui, nav: &Navigation<'_>) ->
     let on_menu = p.hover_pos.is_some_and(|at| over_canvas_menu(app, at));
     // Android delivers a two-finger gesture separately from the primary pointer. Use the
     // gesture centroid for both zoom anchoring and pan so the view follows the fingers.
-    if let Some(touch) = touch.filter(|_| inside) {
+    if let Some(touch) = touch.as_ref().filter(|_| inside) {
         if touch.translation_delta != egui::Vec2::ZERO
             && let Ok(st) = app.session.state_mut()
         {
