@@ -111,6 +111,58 @@ struct PendingTouch {
 /// the first contact as a CAD point. A tap is still committed on its release.
 const TOUCH_GESTURE_DELAY: f64 = 0.14;
 
+/// Turn native touch events into the existing press stream, holding the first contact long enough
+/// to let egui recognize a second-finger navigation gesture.
+fn normalize_touch_steps(
+    raw_steps: Vec<press::Step>,
+    pending: &mut Option<PendingTouch>,
+    now: f64,
+    modifiers: egui::Modifiers,
+) -> Vec<press::Step> {
+    let mut steps = Vec::with_capacity(raw_steps.len() + 2);
+    let has_touch_cancel = raw_steps.iter().any(|step| matches!(step, press::Step::TouchCancel));
+    if has_touch_cancel {
+        *pending = None;
+    } else if let Some(contact) = *pending
+        && now - contact.started_at >= TOUCH_GESTURE_DELAY
+    {
+        *pending = None;
+        steps.push(press::Step::Down(contact.origin, contact.modifiers));
+        if let Some(latest) = contact.latest {
+            steps.push(press::Step::Move(latest));
+        }
+    }
+    for step in raw_steps {
+        match step {
+            press::Step::TouchDown(pos) => {
+                *pending = Some(PendingTouch { origin: pos, latest: None, started_at: now, modifiers });
+            }
+            press::Step::TouchMove(pos) => {
+                if let Some(contact) = pending {
+                    contact.latest = Some(pos);
+                } else {
+                    steps.push(press::Step::Move(pos));
+                }
+            }
+            press::Step::TouchUp(pos) => {
+                if let Some(contact) = pending.take() {
+                    steps.push(press::Step::Down(contact.origin, contact.modifiers));
+                    if let Some(latest) = contact.latest {
+                        steps.push(press::Step::Move(latest));
+                    }
+                }
+                steps.push(press::Step::Up(pos));
+            }
+            press::Step::TouchCancel => {
+                *pending = None;
+                steps.push(press::Step::Cancel);
+            }
+            other => steps.push(other),
+        }
+    }
+    steps
+}
+
 #[derive(Default)]
 pub struct CanvasState {
     pub list: Option<DisplayList>,
@@ -779,54 +831,7 @@ struct PressContext {
 fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bool {
     let PressContext { rect, xf, inside, middle_down, mods, grip_clicks } = *context;
     let (raw_steps, now, primary_down) = ui.input(|i| (press::steps(&i.events), i.time, i.pointer.primary_down()));
-    // Normalize native touch separately from mouse input. The first Android contact is buffered
-    // briefly: if a second finger appears, show() cancels it before any CAD point reaches Session.
-    let mut steps = Vec::with_capacity(raw_steps.len() + 2);
-    let has_touch_cancel = raw_steps.iter().any(|step| matches!(step, press::Step::TouchCancel));
-    if has_touch_cancel {
-        app.canvas.touch_pending = None;
-    } else if let Some(pending) = app.canvas.touch_pending
-        && now - pending.started_at >= TOUCH_GESTURE_DELAY
-    {
-        app.canvas.touch_pending = None;
-        steps.push(press::Step::Down(pending.origin, pending.modifiers));
-        if let Some(latest) = pending.latest {
-            steps.push(press::Step::Move(latest));
-        }
-    }
-    for step in raw_steps {
-        match step {
-            press::Step::TouchDown(pos) => {
-                app.canvas.touch_pending = Some(PendingTouch {
-                    origin: pos,
-                    latest: None,
-                    started_at: now,
-                    modifiers: mods,
-                });
-            }
-            press::Step::TouchMove(pos) => {
-                if let Some(pending) = &mut app.canvas.touch_pending {
-                    pending.latest = Some(pos);
-                } else {
-                    steps.push(press::Step::Move(pos));
-                }
-            }
-            press::Step::TouchUp(pos) => {
-                if let Some(pending) = app.canvas.touch_pending.take() {
-                    steps.push(press::Step::Down(pending.origin, pending.modifiers));
-                    if let Some(latest) = pending.latest {
-                        steps.push(press::Step::Move(latest));
-                    }
-                }
-                steps.push(press::Step::Up(pos));
-            }
-            press::Step::TouchCancel => {
-                app.canvas.touch_pending = None;
-                steps.push(press::Step::Cancel);
-            }
-            other => steps.push(other),
-        }
-    }
+    let steps = normalize_touch_steps(raw_steps, &mut app.canvas.touch_pending, now, mods);
     let mut click_used = false;
     for step in steps {
         match step {
