@@ -44,6 +44,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+      - name: Run canvas touch input regression tests
+        run: cargo test -p cadcraft-ui-egui --lib canvas::press::tests
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
       - name: Build native library
