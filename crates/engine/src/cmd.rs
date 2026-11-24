@@ -336,9 +336,9 @@ mod registry_tests {
     /// Keep the source inventory honest: every runtime command ID is unique and the explicit
     /// registry count changes only alongside an intentional inventory update.
     #[test]
-    fn command_registry_has_389_unique_ids() {
+    fn command_registry_has_477_unique_ids() {
         let specs = command_specs();
-        assert_eq!(specs.len(), 389, "update docs/android-command-source-index.md when adding or removing commands");
+        assert_eq!(specs.len(), 477, "update docs/android-command-source-index.md when adding or removing commands");
         let mut ids = HashSet::with_capacity(specs.len());
         for spec in specs {
             assert!(ids.insert(spec.id), "duplicate command ID: {}", spec.id);
