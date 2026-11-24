@@ -51,6 +51,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+      - name: Verify engine command registry inventory
+        run: cargo test --locked -p cadcraft-engine --lib command_registry_has_389_unique_ids
+      - name: Verify UI-only command inventory
+        run: cargo test --locked -p cadcraft-ui-egui --lib ui_command_ids_are_unique_and_match_the_source_index
       - name: Run canvas touch input regression tests
         run: "cargo test --locked -p cadcraft-ui-egui --lib canvas::"
       - name: Install cargo-ndk
