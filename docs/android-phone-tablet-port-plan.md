@@ -126,3 +126,21 @@ Changes committed on `feat/android-phone-tablet`:
 Commits: `094a877`, `7ee59db`, `f9a9571`.
 
 These changes address the layout causes visible in the screenshot, but their visual result still needs a new Android APK and on-device verification. Existing saved user preferences may preserve a previously enabled Tool Sets panel. Do not mark the phone layout as verified until checked on the target phone.
+
+
+## Follow-up: touch navigation and clipped phone docks — 2026-11-24
+
+The screenshot symptoms exposed two concrete implementation issues:
+- The Android dock widths had been set below the panels' own minimum widths (150/190 points versus 220 points). The docking layout could therefore exceed the available phone width even though the constants looked smaller.
+- Pinch zoom was already read from egui multi-touch input, but the canvas hit test required a mouse hover position and hover response. On a touch screen the gesture centroid can be available without a mouse hover, so the canvas could reject the gesture; the zoom anchor also used only the pointer hover position.
+
+Fixes now committed:
+- Set Android dock widths to 232 points, respecting panel minimum widths when a panel is opened.
+- Hide both desktop docks by default on Android; the existing Window menu remains the route to open Layers, Properties, and Tool Sets on demand. The drawing canvas and compact Tool Sets strip retain priority on phones.
+- Use the two-finger gesture centroid for canvas hit testing and pinch zoom anchoring, and apply the two-finger translation delta as canvas pan.
+- Suppress single-pointer drawing/cursor/selection handling while a multi-touch gesture is active, preventing a pinch from becoming a stray CAD click.
+- Added a unit test that walks every Drafting and Modeling Tool Sets button and checks that its command ID resolves to a registered engine or UI command.
+
+Commits: `61f53fb`, `1f7af89`, `8d79e4c`, `3978870`, `c03dfec`.
+
+Verification still required: the newest Android CI run and the new tool-command unit test must pass; then install the resulting APK on the target phone and test one-finger drawing, two-finger pan, pinch zoom, opening/closing Layers and Properties, and representative tools from every Tool Sets group. A registered command ID proves the button is wired, not that every command has been functionally exercised. SAF open/save and full device coverage remain separate incomplete gates.
