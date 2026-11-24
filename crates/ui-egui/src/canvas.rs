@@ -830,7 +830,14 @@ struct PressContext {
 /// handled here was released this frame (its click must not count again).
 fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bool {
     let PressContext { rect, xf, inside, middle_down, mods, grip_clicks } = *context;
-    let (raw_steps, now, primary_down) = ui.input(|i| (press::steps(&i.events), i.time, i.pointer.primary_down()));
+    let (raw_steps, now, primary_down, focused) =
+        ui.input(|i| (press::steps(&i.events), i.time, i.pointer.primary_down(), i.focused));
+    // A paused/backgrounded Android activity can lose its matching TouchUp/Cancel event.
+    // Never let a buffered contact turn into a CAD point after focus is lost.
+    if !focused {
+        app.canvas.touch_pending = None;
+        app.canvas.press = None;
+    }
     let steps = normalize_touch_steps(raw_steps, &mut app.canvas.touch_pending, now, mods);
     let mut click_used = false;
     for step in steps {
