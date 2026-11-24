@@ -402,3 +402,12 @@
 - أضيف اختبار `second_native_touch_start_cancels_the_buffered_first_contact`.
 - Commits: `621983bd6439b98541db46006cca812375ddff41`, `7900e5186c6a59172664b25cb00d707928a3c40e`.
 - يبقى اختبار تتابع TouchId الفعلي عبر egui وجهاز Android ضرورياً؛ هذه الحماية تعالج بدايات اللمس التي تظهر في stream، ولا تحل محل اختبار gesture recognizer على الجهاز.
+
+
+### مخرج جديد من M0: فهرس أسماء أوامر المحرك
+- أضيف `docs/android-command-source-index.md`، ويحتوي أسماء التصريحات الصريحة لكل ملف من 40 وحدة.
+- العدد بعد إعادة التحقق من ملف `annotate.rs`: **387 تصريحاً** بلا أسماء مكررة بين هذه الملفات.
+- Commit الفهرس: `adb4b63162514ddb6491ee2ef3ed2c35364c7b9c`.
+- Commit تصحيح العدد وإضافة `dimspace` الذي كان ناقصاً في النسخة الأولى: `30f51a386855575582f5a2b2cc771a0ca8766457`.
+- هذا يغلق جرد أسماء المصدر المباشر فقط؛ لا يغلق runtime inventory ولا يربط كل handler/parameter/test حتى الآن.
+- الرابط: https://github.com/loay94an/CAD/blob/feat/android-phone-tablet/docs/android-command-source-index.md
