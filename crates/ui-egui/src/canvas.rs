@@ -911,7 +911,9 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
             | press::Step::TouchMove(_)
             | press::Step::TouchUp(_)
             | press::Step::TouchCancel => {
-                unreachable!("native touch steps must be normalized before canvas press handling");
+                // Defensive fallback: native phases should have been normalized above. If a
+                // future event path bypasses normalization, discard it rather than panic.
+                app.canvas.touch_pending = None;
             }
         }
     }
