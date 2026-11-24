@@ -197,7 +197,9 @@ impl Default for UiState {
             interface_language: i18n::Preference::default(),
             // On phones, keep the canvas usable by default; Tool Sets remain available from Window/menu controls.
             show_toolsets: !cfg!(target_os = "android"),
-            show_palettes: true,
+            // Phone docks are opened on demand from Window; keeping both desktop docks open
+            // makes their combined minimum width larger than a portrait viewport.
+            show_palettes: !cfg!(target_os = "android"),
             show_toolbar: true,
             show_file_tabs: true,
             show_status_bar: true,
