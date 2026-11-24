@@ -85,6 +85,12 @@ pub(crate) enum Step {
     Up(Pos2),
     /// The platform cancelled the contact; it must never be treated as a release/click.
     Cancel,
+    /// Native Android touch lifecycle, kept separate so the canvas can defer the first contact
+    /// until it is clear that a second finger is not starting a navigation gesture.
+    TouchDown(Pos2),
+    TouchMove(Pos2),
+    TouchUp(Pos2),
+    TouchCancel,
 }
 
 /// The primary-button presses, pointer moves and releases among a frame's events, in order. A slow
@@ -96,10 +102,10 @@ pub(crate) fn steps(events: &[egui::Event]) -> Vec<Step> {
     events
         .iter()
         .filter_map(|event| match *event {
-            egui::Event::Touch { phase: egui::TouchPhase::Start, pos, .. } => Some(Step::Down(pos, Modifiers::NONE)),
-            egui::Event::Touch { phase: egui::TouchPhase::Move, pos, .. } => Some(Step::Move(pos)),
-            egui::Event::Touch { phase: egui::TouchPhase::End, pos, .. } => Some(Step::Up(pos)),
-            egui::Event::Touch { phase: egui::TouchPhase::Cancel, .. } => Some(Step::Cancel),
+            egui::Event::Touch { phase: egui::TouchPhase::Start, pos, .. } => Some(Step::TouchDown(pos)),
+            egui::Event::Touch { phase: egui::TouchPhase::Move, pos, .. } => Some(Step::TouchMove(pos)),
+            egui::Event::Touch { phase: egui::TouchPhase::End, pos, .. } => Some(Step::TouchUp(pos)),
+            egui::Event::Touch { phase: egui::TouchPhase::Cancel, .. } => Some(Step::TouchCancel),
             egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: true, modifiers } if !has_touch => Some(Step::Down(pos, modifiers)),
             egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: false, .. } if !has_touch => Some(Step::Up(pos)),
             egui::Event::PointerMoved(pos) if !has_touch => Some(Step::Move(pos)),
@@ -162,7 +168,7 @@ mod tests {
             egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::Move, pos: pos(40.0), force: None },
             egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::End, pos: pos(40.0), force: None },
         ];
-        assert_eq!(steps(&events), vec![Step::Down(pos(10.0), Modifiers::NONE), Step::Move(pos(40.0)), Step::Up(pos(40.0))]);
+        assert_eq!(steps(&events), vec![Step::TouchDown(pos(10.0)), Step::TouchMove(pos(40.0)), Step::TouchUp(pos(40.0))]);
     }
 
     #[test]
@@ -172,7 +178,7 @@ mod tests {
             egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::Start, pos, force: None },
             egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::Cancel, pos, force: None },
         ];
-        assert_eq!(steps(&events), vec![Step::Down(pos, Modifiers::NONE), Step::Cancel]);
+        assert_eq!(steps(&events), vec![Step::TouchDown(pos), Step::TouchCancel]);
     }
 
     #[test]
