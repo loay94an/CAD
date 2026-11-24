@@ -802,6 +802,11 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
                     p.moved(pos, now);
                 }
             }
+            press::Step::Cancel => {
+                // A cancelled Android contact is not a finger-up. In particular, do not
+                // complete a selection-window drag or activate a grip on cancellation.
+                app.canvas.press = None;
+            }
             press::Step::Up(pos) => {
                 let Some(mut p) = app.canvas.press.take() else { continue };
                 click_used = true;
