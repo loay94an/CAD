@@ -15,7 +15,7 @@
 ## الملخص
 
 - الملفات المفحوصة: **40**
-- التصريحات الصريحة في هذه الملفات: **386**
+- التصريحات الصريحة في هذه الملفات: **387**
 - أسماء مكررة بين الملفات: **0**
 - الملف `clipboard.rs` لا يحتوي تصريحاً مباشراً من هذا النمط؛ قد يحتوي helpers مستخدمة من أوامر أخرى.
 
@@ -59,7 +59,7 @@
 
 ### `cmd/annotate.rs` — 23
 
-`dimlinear`, `dimaligned`, `dimradius`, `dimdiameter`, `dimangular`, `dimarc`, `dimordinate`, `dimcontinue`, `dimbaseline`, `qdim`, `dim`, `mleader`, `leader`, `dimstyle.update`, `dimoverride`, `dimreassociate`, `dimdisassociate`, `dimtedit.home`, `dimtedit.angle`, `dimtedit.left`, `dimtedit.center`, `dimtedit.right`, `dimtedit`
+`dimlinear`, `dimaligned`, `dimradius`, `dimdiameter`, `dimangular`, `dimarc`, `dimordinate`, `dimcontinue`, `dimbaseline`, `qdim`, `dim`, `mleader`, `leader`, `dimstyle.update`, `dimoverride`, `dimreassociate`, `dimdisassociate`, `dimtedit.home`, `dimtedit.angle`, `dimtedit.left`, `dimtedit.center`, `dimtedit.right`, `dimtedit`, `dimspace`
 
 ### `cmd/dimstyles.rs` — 2
 
