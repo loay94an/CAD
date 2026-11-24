@@ -838,7 +838,11 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
         app.canvas.touch_pending = None;
         app.canvas.press = None;
     }
-    let steps = normalize_touch_steps(raw_steps, &mut app.canvas.touch_pending, now, mods);
+    let steps = if focused {
+        normalize_touch_steps(raw_steps, &mut app.canvas.touch_pending, now, mods)
+    } else {
+        Vec::new()
+    };
     let mut click_used = false;
     for step in steps {
         match step {
