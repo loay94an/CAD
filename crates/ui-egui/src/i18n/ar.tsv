@@ -1396,20 +1396,20 @@ menu	View	عرض
 	This drawing has no blocks.	لا يحتوي هذا الرسم على كتل.
 	This library has no drawings or blocks.	لا تحتوي هذه المكتبة على رسومات أو كتل.
 	Only the first {n} are shown.	يتم عرض أول {n} فقط.
-	Find All	Find All
-	Find what:	Find what:
-	Match case	Match case
-	Replace	Replace
-	Replace All	Replace All
-	Replace with:	Replace with:
-	Replacement text	Replacement text
-	Results	Results
-	Searches the current space.	Searches the current space.
-	Text to find	Text to find
-	Whole words	Whole words
-	Nothing found	Nothing found
-	Ctrl+Enter to apply	Ctrl+Enter to apply
-	Edit Text	Edit Text
+	Find All	بحث عن الكل
+	Find what:	ابحث عن:
+	Match case	مطابقة حالة الأحرف
+	Replace	استبدال
+	Replace All	استبدال الكل
+	Replace with:	استبدال بـ:
+	Replacement text	النص البديل
+	Results	النتائج
+	Searches the current space.	يبحث في المساحة الحالية.
+	Text to find	النص المطلوب البحث عنه
+	Whole words	الكلمات كاملة
+	Nothing found	لم يتم العثور على نتائج
+	Ctrl+Enter to apply	اضغط Ctrl+Enter للتطبيق
+	Edit Text	تحرير النص
 	The drawing changed. Close the window and open it again.	تغيّر الرسم. أغلق النافذة وافتحها مرة أخرى.
 
 # ArtCraft feature naming
