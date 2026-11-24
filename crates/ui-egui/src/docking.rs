@@ -85,14 +85,14 @@ pub const LAYOUT_VERSION: u32 = 2;
 
 /// Width of the left dock's Tool Sets column.
 #[cfg(target_os = "android")]
-pub const TOOL_SETS_WIDTH: f32 = 150.0;
+pub const TOOL_SETS_WIDTH: f32 = 232.0;
 #[cfg(not(target_os = "android"))]
 pub const TOOL_SETS_WIDTH: f32 = 220.0;
 
 /// Width of the right dock's palettes column. Android uses a compact width so the dock
 /// stays inside a phone viewport instead of being clipped beyond the screen edge.
 #[cfg(target_os = "android")]
-pub const PALETTES_WIDTH: f32 = 190.0;
+pub const PALETTES_WIDTH: f32 = 232.0;
 #[cfg(not(target_os = "android"))]
 pub const PALETTES_WIDTH: f32 = 300.0;
 /// Layers' body height above Properties in a dock column.
