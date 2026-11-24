@@ -83,6 +83,8 @@ pub(crate) enum Step {
     Down(Pos2, Modifiers),
     Move(Pos2),
     Up(Pos2),
+    /// The platform cancelled the contact; it must never be treated as a release/click.
+    Cancel,
 }
 
 /// The primary-button presses, pointer moves and releases among a frame's events, in order. A slow
@@ -96,7 +98,8 @@ pub(crate) fn steps(events: &[egui::Event]) -> Vec<Step> {
         .filter_map(|event| match *event {
             egui::Event::Touch { phase: egui::TouchPhase::Start, pos, .. } => Some(Step::Down(pos, Modifiers::NONE)),
             egui::Event::Touch { phase: egui::TouchPhase::Move, pos, .. } => Some(Step::Move(pos)),
-            egui::Event::Touch { phase: egui::TouchPhase::End | egui::TouchPhase::Cancel, pos, .. } => Some(Step::Up(pos)),
+            egui::Event::Touch { phase: egui::TouchPhase::End, pos, .. } => Some(Step::Up(pos)),
+            egui::Event::Touch { phase: egui::TouchPhase::Cancel, .. } => Some(Step::Cancel),
             egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: true, modifiers } if !has_touch => Some(Step::Down(pos, modifiers)),
             egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: false, .. } if !has_touch => Some(Step::Up(pos)),
             egui::Event::PointerMoved(pos) if !has_touch => Some(Step::Move(pos)),
@@ -160,6 +163,16 @@ mod tests {
             egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::End, pos: pos(40.0), force: None },
         ];
         assert_eq!(steps(&events), vec![Step::Down(pos(10.0), Modifiers::NONE), Step::Move(pos(40.0)), Step::Up(pos(40.0))]);
+    }
+
+    #[test]
+    fn native_touch_cancel_is_not_a_release() {
+        let pos = egui::pos2(10.0, 20.0);
+        let events = vec![
+            egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::Start, pos, force: None },
+            egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::Cancel, pos, force: None },
+        ];
+        assert_eq!(steps(&events), vec![Step::Down(pos, Modifiers::NONE), Step::Cancel]);
     }
 
     #[test]
