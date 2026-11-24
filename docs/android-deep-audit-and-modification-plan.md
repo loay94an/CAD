@@ -1,0 +1,266 @@
+# CADCraft Android — التدقيق المعمّق وخطة التعديل التنفيذية
+
+**المستودع:** `loay94an/CAD`  
+**الفرع:** `feat/android-phone-tablet`  
+**المرجع المفحوص:** `87b2070a04377462117d5e273c1c84b646ebff75`  
+**التاريخ:** 2026-11-24  
+**نوع التدقيق:** قراءة ساكنة موسعة لمصدر المحرك والواجهة ومضيف Android؛ لم تُنفذ بعد اختبارات قبول على جهاز Android.
+
+## 1. حدود التدقيق بدقة
+
+تمت مراجعة شجرة Git كاملة دون truncation (1,415 مساراً في المرجع الحالي)، وقراءة ملفات التسجيل الأساسية للأوامر، و40 ملفاً رئيسياً من وحدات أوامر المحرك، ومصادر Android/egui ذات الصلة بالملفات والقوائم واللوحات واللمس.
+
+**نتيجة العد:** عُثر على 387 تصريحاً صريحاً من نمط `CommandSpec::new("...")` في ملفات وحدات الأوامر الأربعين التي فُحصت. هذا عدد تصريحات صريحة في ملفات المصدر، وليس ادعاءً بأنه العدد النهائي لكل أمر متاح في runtime؛ فهو لا يحسب تلقائياً:
+- الأوامر/الاختصارات التي تنشئها `file::alias_specs()` أو أي builders ديناميكية.
+- أوامر واجهة المستخدم `UI_COMMANDS` التي لا تمر عبر محرك الأوامر.
+- أوامر/أسماء LISP والاختصارات التي تُحمّل وقت التشغيل.
+- أي factory/helper قد ينشئ مواصفات دون نص `CommandSpec::new` مباشر.
+
+لم تُتبع جميع دوال التنفيذ داخل كل ملف إلى كل helper أو كل اختبار؛ لذلك تبقى هذه مراجعة سجلّ/عائلات أوامر، وليست شهادة أن كل أمر اختُبر سلوكياً.
+
+## 2. سجل عائلات الأوامر
+
+الأرقام أدناه عدد تصريحات `CommandSpec::new` الظاهرة في الملف المحدد فقط، وليست درجات اكتمال Android.
+
+| مجال الوظيفة | ملف التسجيل | التصريحات |
+|---|---|---:|
+| ملفات، فتح، حفظ، script | `cmd/file.rs` | 9 |
+| تدقيق واسترداد | `cmd/audit.rs` | 3 |
+| تراجع/إعادة/قص/نسخ/لصق/تحديد | `cmd/edit.rs` | 15 |
+| تحديد متقدم | `cmd/qselect.rs` | 2 |
+| تحديد مشابه/إخفاء/عزل | `cmd/selecttools.rs` | 4 |
+| Zoom/Pan/View/Redraw | `cmd/view.rs` | 22 |
+| UCS | `cmd/ucs.rs` | 7 |
+| رسم أساسي | `cmd/draw.rs` | 16 |
+| رسم متقدم/أقواس/منحنيات/3D | `cmd/draw2.rs` | 28 |
+| أبعاد وتعليقات وقيادات | `cmd/annotate.rs` | 24 |
+| أنماط الأبعاد | `cmd/dimstyles.rs` | 2 |
+| CLI لأنماط الأبعاد | `cmd/dimstyle_cli.rs` | 2 |
+| تحرير MLeader | `cmd/mleader_edit.rs` | 5 |
+| Annotation scale | `cmd/annoscale.rs` | 9 |
+| Hatch/Gradient/Boundary/Region | `cmd/hatch.rs` | 7 |
+| إزالة التكرارات | `cmd/overkill.rs` | 1 |
+| Blocks/Insert/Attributes/Purge | `cmd/blocks.rs` | 14 |
+| تعديل هندسي أساسي | `cmd/modify.rs` | 17 |
+| ترتيب الرسم | `cmd/draworder.rs` | 11 |
+| Arrays | `cmd/array.rs` | 4 |
+| Polyline/Spline/Align/Blend/Lengthen | `cmd/modify2.rs` | 12 |
+| Groups | `cmd/groups.rs` | 4 |
+| Grip editing | `cmd/gripcmds.rs` | 7 |
+| Layers وحالاتها | `cmd/layer.rs` | 24 |
+| Layouts/Viewports/Plot | `cmd/layout.rs` | 22 |
+| Import/Export/Preview/Publish | `cmd/exchange.rs` | 8 |
+| Image attach | `cmd/image.rs` | 2 |
+| Properties/Styles/Units/Color | `cmd/props.rs` | 32 |
+| Inquiry/Measure/Area/Count | `cmd/inquiry.rs` | 15 |
+| Drafting settings/variables | `cmd/settings.rs` | 17 |
+| Options | `cmd/options.rs` | 1 |
+| Menu/Toolbar | `cmd/interface.rs` | 2 |
+| Calculator/Find/Measure geometry | `cmd/utility.rs` | 7 |
+| Tables | `cmd/table.rs` | 8 |
+| Tolerance | `cmd/tolerance.rs` | 1 |
+| TXT to MTEXT | `cmd/txt2mtxt.rs` | 1 |
+| Geometric/Dimensional constraints | `cmd/constraints.rs` | 16 |
+| APPLOAD/LISP | `cmd/lisp.rs` | 2 |
+| Drawing compare | `cmd/file/compare.rs` | 4 |
+| Clipboard helpers | `cmd/clipboard.rs` | 0 |
+
+**المجموع الصريح في الملفات أعلاه: 387.** تسجيل الأوامر يجمع هذه العائلات في `crates/engine/src/cmd.rs::command_specs()`، ويخزن لكل أمر id/label/menu/shortcut/aliases/params/enabled/run/undoable/interactive. وهذه نقطة ممتازة لبناء جرد آلي قابل للتحقق بدلاً من تخمين ما تدعمه الواجهة.
+
+## 3. نتائج مضيف Android والواجهات
+
+### 3.1 المضيف والـ lifecycle
+- `apps/cadcraft-android/src/lib.rs` ينشئ `eframe::NativeOptions` مع `AndroidApp` ويشغّل `CadApp` و`Session` الأصليين.
+- `MainActivity.java` مجرد `GameActivity` ويحمّل `libmain`; لا توجد فيه حالياً معالجة Intent أو Storage Access Framework.
+- Manifest يعلن Launcher Activity و`supportsRtl=true`، لكنه لا يعلن حالياً `ACTION_OPEN_DOCUMENT` أو `ACTION_CREATE_DOCUMENT` كمسار استقبال للمستندات.
+- Gradle يحدد minSdk 23 وtargetSdk 35 وABI واحداً arm64-v8a. هذا قرار أولي مقبول، لكنه يعني عدم وجود APK x86 أو 32-bit حالياً.
+
+### 3.2 خدمات المنصة والملفات
+- `Services` في `crates/ui-egui/src/lib.rs` يقدم `pick_open`, `pick_save`, `start_pick`, `pick_lisp`, `pick_pgp`, و`no_file_system`.
+- Android host يمرر `Services::default()`؛ وبالتالي لا توجد callbacks للفتح/الحفظ/APPLOAD/استيراد PGP.
+- `pick_then` مصمم فعلاً لمنتقي غير متزامن، ويربط العملية بمستند UID ويحمي من استجابة متأخرة على مستند آخر. يمكن إعادة استخدامه لخدمة SAF بدلاً من اختراع picker جديد في UI.
+- `open_path` و`opening::Opening` يعتمدان على `Path/PathBuf` و`read_file(path)` على worker thread. URI من SAF ليس مساراً محلياً مضموناً.
+- `install_io` يثبت codecs على bytes (قراءة/كتابة/plot/image/entity/object records)، وهذا أساس جيد لبناء طبقة stream/bytes.
+- مسار الحفظ الحالي يتضمن backup/atomic filesystem behavior في المحرك؛ يجب الحفاظ على هذه الضمانات عند الانتقال إلى ContentResolver وعدم استبدالها بحفظ مباشر غير آمن.
+- يلزم دعم URI persistence عبر `takePersistableUriPermission` عندما يسمح مزود المستندات بذلك، ومعالجة provider الذي لا يدعم seek/rename/atomic replace.
+
+### 3.3 الواجهة والهاتف
+- `UiState::default()` يخفي Tool Sets وPalettes على Android، لكنه يترك Toolbar وFile Tabs وStatus Bar وCommand Line وViewCube مفعّلة.
+- `docking.rs` يعرّف Android widths ثابتة مقدارها 232dp لكل من Tool Sets وPalettes. هذه أبعاد لا تتناسب مع هاتف portrait إذا فُتحت اللوحتان معاً؛ الإخفاء الافتراضي يخفف المشكلة لكنه لا يصنع تصميم هاتف متجاوباً.
+- `menus.rs` يولد شجرة القوائم من `command_specs()` ثم يضيف `UI_COMMANDS`؛ شريط القوائم على Android قابل للتمرير أفقياً، لكنه ما زال يحتفظ بنموذج القوائم المكتبي.
+- `docking.rs` يوفر Canvas/ToolSets/QuickCalc/Layers/Properties/ExternalRefs/Blocks؛ ينبغي أن تتحول لوحات الهاتف إلى sheets/overlays لا أعمدة ثابتة.
+- Blocks وXrefs وLayers وProperties ليست مجرد رسومات شكلية: هذه اللوحات تستدعي أوامر المحرك وتحتاج اختبارات تفاعلية مستقلة.
+- `cmdline.rs` يضم history/recent input/autocomplete/dynamic input/IME composition، ويجب الحفاظ عليها مع تغيير العرض إلى console سفلي مناسب للمس ولوحة المفاتيح.
+
+### 3.4 اللمس والتنقل
+- `canvas/press.rs` يتعامل مع Touch Start/Move/End/Cancel، ويختار stream اللمس الأصلي عندما توجد Touch events لتجنب ازدواج Pointer events.
+- `canvas.rs` يستخدم `multi_touch()` ومركز gesture لتحريك/تكبير العرض.
+- هذا يثبت وجود إصلاحات لمس في المصدر، لكنه لا يثبت سلوكها على أجهزة متعددة أو ثبات كل الأوامر التفاعلية بعد release.
+- يجب اختبار الإيماءات المتزامنة مع نافذة تحديد، snap، grips، dynamic input، command prompts، وفتح قوائم فوق مساحة الرسم.
+
+### 3.5 الصيغ
+- `cadcraft-io` يصف DXF وSVG وPNG وPDF ويعتمد أيضاً على `craft-dwg`.
+- Android host يثبت read/write/plot وimage decode hooks.
+- لا نعلن دعم DWG الكامل أو عدم فقد خصائصه على Android حتى تجتاز ملفات DWG فعلية round-trip واختبارات ARM64؛ README يذكر صراحة أن DWG worker support غير مفعّل/غير معلن على Android.
+- يجب اختبار DXF versions، الصور المرتبطة، Xrefs، Fonts، PDF/PNG/SVG، والبيانات/الكيانات غير المعروفة.
+
+## 4. مصفوفة اعتماديات المنصة لكل عائلة
+
+| العائلة | اعتماديات مرجحة يجب تدقيقها في handler | سياسة Android |
+|---|---|---|
+| OPEN/SAVE/SAVEAS/RECOVER | file picker، path، filesystem، backup، worker | SAF streams/bytes + حفظ آمن |
+| IMPORT/EXPORT/PUBLISH/PLOT | picker، output URI، codecs، preview/print | SAF create document + اختبار MIME |
+| IMAGE/XREF/INSERT/WBLOCK/BLOCKLIB | قراءة ملفات تابعة ومسارات نسبية | URI resolver + cache داخلي مضبوط + إعادة ربط |
+| APPLOAD/LISP/ALIASEDIT | قراءة نصوص LSP/PGP، مجلدات أخيرة | SAF + تأكيد أمان + دعم ملفات نصية |
+| COPY/CUT/PASTE | clipboard system + DXF text | ربط Android clipboard والتحقق من الحجم |
+| FONTS/TEXT/MTEXT | تحميل خطوط، Unicode shaping، bidi | خطوط Android fallback + اختبار العربية |
+| PLOT/PDF | PDF writer، print destination | Android Print Framework أو SAF PDF |
+| AUTOSAVE/RECOVERY | filesystem، temp files، atomic rename | مساحة داخلية خاصة + recovery بعد process death |
+| OPTIONS/SETTINGS | preferences/storage | DataStore/SharedPreferences أو eframe storage مع migration |
+| SPACEMOUSE | HID backend | إخفاء/تعطيل واضح إذا لم يتوفر جهاز |
+| SCREEN/CAPTURE/CLIPBOARD | capture، permission، clipboard | Android APIs وruntime permissions حيث يلزم |
+
+هذه المصفوفة قائمة تحقق وليست ادعاء بأن كل اعتماد تم إثباته لكل handler. الخطوة الهندسية التالية هي استخراج call-sites لكل اعتماد وربطها بالـ IDs.
+
+## 5. خطة التعديل التنفيذية — بوابات قبول إلزامية
+
+### M0 — إغلاق الجرد الآلي (P0)
+**المخرجات**
+1. برنامج/اختبار داخلي يستخرج كل `CommandInfo` من runtime registry أو test harness.
+2. ملف CSV/JSON/Markdown لكل أمر: ID، label، aliases، menu path، shortcut، interactive، enabled condition، handler source، test names.
+3. ربط `UI_COMMANDS` وpalette routes وmenu entries بأمر أو action.
+4. كشف orphan commands (أمر لا يظهر في قائمة ولا toolset) وdead UI actions وmenu item بلا handler.
+5. جرد tests لكل module وفصل unit tests عن Android device tests.
+
+**معيار القبول:** لا يوجد ID مسجل دون صف، وكل صف له مصدر handler وحالة اختبار موثقة.
+
+### M1 — طبقة ملفات Android SAF (P0، قبل اعتماد التطبيق)
+**التصميم المقترح**
+- Java/Kotlin bridge صغير داخل MainActivity يستعمل `ACTION_OPEN_DOCUMENT` و`ACTION_CREATE_DOCUMENT` مع MIME/filter مناسب.
+- إرجاع URI وdisplay name وMIME، لا تمرير URI على أنه Path.
+- تنفيذ عمليات القراءة والكتابة عبر ContentResolver streams/ParcelFileDescriptor.
+- إضافة abstraction محايدة في Rust/واجهة host: `DocumentRef` وعمليات read/write bytes/stream، مع بقاء filesystem adapter لسطح المكتب.
+- إعادة استخدام `Services::start_pick` و`pick_then` لتسليم النتيجة asynchronously.
+- تخزين URI grants القابلة للاستمرار، وإظهار خطأ واضح إذا سحب المستخدم الصلاحية.
+- فتح المستند: read bytes على worker، ثم `cadcraft_io::read(bytes, display_name)`.
+- حفظ: `cadcraft_io::write` إلى buffer/temp internal file، ثم كتابة URI مع فحص نجاح flush/close. لا تفترض أن DocumentProvider يدعم rename/atomic replace.
+- الملفات التابعة (صور/Xrefs/Fonts/LISP/PGP) تحتاج resolver موحداً وسياسة cache وإعادة ربط؛ لا تحوّل URI إلى filesystem path مزيف.
+
+**اختبارات:** open DXF/DWG، Save، Save As، overwrite confirmation، export PDF/SVG/PNG، cancel، provider error، URI permission persistence، ملف كبير، process death أثناء الكتابة.
+
+### M2 — إدخال اللمس كآلة حالات واحدة (P0)
+- توحيد Touch وPointer وتحديد مصدر contact ومنع event duplication.
+- حالات: Idle → Pressed → Dragging → Released/Cancelled، مع multi-touch interrupt/cancel صريح.
+- لا تثبّت عنصر الرسم قبل release إلا إذا كان الأمر يتطلب stream نقاط (freehand/polyline).
+- فصل pan/pinch عن drawing selection باستخدام عدد الأصابع وأولوية gesture.
+- منع زر الواجهة أو لوحة الأوامر من تمرير event إلى canvas.
+- تحسين hit targets وgrips وselection window وsnap للـ density.
+- اختبار قلم stylus وhover/pressure لاحقاً دون جعلها شرط الإصدار الأول.
+
+**اختبارات:** line، polyline، circle، rect، freehand، move، copy، grip stretch، window/crossing selection، snap، cancel، pinch أثناء رسم، فتح menu أثناء prompt.
+
+### M3 — واجهة هاتف حقيقية (P1)
+- شاشة رسم كاملة؛ top bar صغير (ملف/تراجع/إعادة/حفظ/لوحات).
+- Bottom tool dock قابل للسحب/الطي، أزرار كبيرة مصنفة، وإمكانية تخصيص المفضلة.
+- command console سفلي يفتح عند الطلب، لا يستهلك ارتفاع الرسم دائماً؛ عند ظهور IME يرفع نفسه ويقلص canvas دون تغطية الحقل.
+- Layers/Properties/Blocks/Xrefs/QuickCalc في bottom sheets أو side sheets بحسب العرض.
+- إلغاء الأعمدة الثابتة 232dp من phone layout؛ إبقاء docking المتقدم للتابلت/الشاشات الكبيرة.
+- اختصارات واضحة للوصول إلى كل أمر موجود، بما في ذلك الأوامر غير المضافة إلى toolbar.
+- لا تخفِ أمرًا مدعوماً بصمت؛ إما يظهر في بحث الأوامر أو يصنف advanced/unsupported بوضوح.
+
+### M4 — واجهة Tablet وDesktop parity (P1)
+- عند عرض كافٍ: Canvas وسط، ToolSets يسار، Layers/Properties يمين.
+- breakpoints تعتمد العرض الفعلي وwindow size classes لا نوع الجهاز وحده.
+- حفظ workspace منفصل للهاتف والتابلت، وتجنب إفساد layouts desktop القديمة.
+- دعم landscape/keyboard/mouse/stylus.
+
+### M5 — command console وIME (P1)
+- المحافظة على history/autocomplete/aliases/dynamic input/preedit.
+- اختبارات Enter/Tab/Escape/arrows/long-press/paste.
+- تصحيح اتجاه النص المختلط: command names والملفات والأرقام LTR داخل سياق عربي RTL.
+- إدخال الإحداثيات والقيم الرقمية بعلامات عشرية/فواصل متوقعة.
+- سجل أوامر قابل للطي مع ارتفاع متغير.
+
+### M6 — ربط الأوامر والأدوات واللوحات (P1)
+تقسيم التنفيذ إلى حزم مستقلة:
+1. Draw: LINE/PLINE/CIRCLE/ARC/RECT/POLYGON/ELLIPSE/SPLINE/TEXT.
+2. Modify/Select: MOVE/COPY/ROTATE/SCALE/MIRROR/TRIM/EXTEND/OFFSET/FILLET/CHAMFER/ERASE/GRIPS.
+3. Annotation: dimensions/MLEADER/TEXT styles/annotation scales.
+4. Layers/Properties: إنشاء/تبديل/قفل/إخفاء/خصائص.
+5. Blocks/Xrefs/Images: attach/insert/edit/reload/path/bind.
+6. Layout/Viewport/Plot: model/paper/layout/viewport/plot/preview.
+7. Inquiry/Utilities/Constraints/Tables/LISP/Compare.
+لكل حزمة: command ID → UI entry → start/interactive prompt → input/cancel → document mutation → undo/redo → persistence/export → test.
+
+### M7 — الصيغ وعدم فقد البيانات (P1)
+- DXF fixtures من إصدارات متعددة وملفات كبيرة.
+- round-trip entities/styles/layers/blocks/dimensions/hatches/constraints/xrefs/images.
+- اختبار DWG read/write على ARM64 بملفات واقعية ومقارنة فقد البيانات؛ تعطيل الخيار أو وسمه تجريبياً إذا لم يجتز.
+- PDF/PNG/SVG مع الورق والمقياس والاتجاه والشفافية والخطوط.
+- حفظ الملفات التالفة/المجهولة دون حذف صامت للكيانات المدعومة جزئياً.
+
+### M8 — العربية وRTL (P1)
+- مقارنة مفاتيح ar.tsv مع اللغة المرجعية واستخراج missing/unchanged/fallback.
+- دعم bidi للنصوص التي تحتوي عربية + أوامر CAD لاتينية + أرقام + paths.
+- اختبار shaping في الواجهة، النص داخل الرسم، MTEXT، PDF/SVG.
+- مراجعة جميع الحوارات ورسائل الخطأ والاختصارات وعناصر الوصول.
+
+### M9 — الأداء والاعتمادية (P1)
+- ملفات 1MB/20MB/100MB وعشرات/مئات آلاف الكيانات.
+- قياس frame time وinput latency والذاكرة وحرارة الجهاز.
+- إيقاف/استئناف، تدوير، فقد GPU context، background/foreground.
+- autosave/recovery/process death أثناء فتح/حفظ.
+- لا تستخدم worker threads غير محدودة؛ راجع jobs والـ cancellation والذاكرة.
+
+### M10 — جودة الإصدار (P0)
+- CI: fmt/clippy/unit tests/Android release build/package validation.
+- Emulator smoke test للتثبيت/التشغيل/التدوير ولقطات واجهة.
+- جهاز حقيقي واحد على الأقل للهاتف وجهاز Tablet أو emulator كبير.
+- test report مرتبط بـ commit وAPK SHA256 وAndroid API/device/density.
+- لا تصدر Release على أساس نجاح تجميع APK فقط.
+
+## 6. ترتيب التنفيذ والاعتماديات
+
+| الترتيب | الحزمة | الأولوية | لماذا |
+|---:|---|---|---|
+| 1 | إغلاق جرد registry وUI mapping | P0 | يمنع نسيان أوامر/وظائف مخفية |
+| 2 | SAF + DocumentRef + حفظ آمن | P0 | بدونها لا يوجد سير عمل مستندات مكتمل |
+| 3 | touch state machine + تثبيت الرسم | P0 | أساس التفاعل الهندسي |
+| 4 | command console + IME | P0 | الوصول للأوامر والمعاملات |
+| 5 | phone shell + sheets + responsive | P1 | استعمال عملي على شاشة صغيرة |
+| 6 | tablet layout | P1 | الاستفادة من مساحة التابلت |
+| 7 | أدوات الرسم/التعديل/اللوحات end-to-end | P1 | التحقق من الوظائف الأساسية |
+| 8 | الصيغ/الخطوط/العربية | P1 | موثوقية المستندات والإخراج |
+| 9 | lifecycle/performance/recovery | P1 | منع الأعطال وفقد العمل |
+| 10 | device QA وإصدار | P0 gate | منع تسليم APK غير مختبر |
+
+## 7. الاختبارات ومعايير النجاح
+
+لكل test case احفظ:
+- Test ID، commit SHA، APK SHA256.
+- الجهاز، ABI، Android API، screen width/height/density.
+- خطوات إعادة الإنتاج، النتيجة، logcat، screenshot/recording.
+- هل الاختبار آلي أم يدوي، وهل يعاد عند تغيير المحرك/الواجهة.
+
+**بوابات الإصدار الإلزامية**
+1. 100% من IDs المسجلة موثقة في inventory.
+2. لا يوجد أمر أساسي (Draw/Modify/Save/Select/Layer) بلا مسار UI أو command search.
+3. لا يوجد فقد صامت عند فتح/حفظ/تصدير fixtures.
+4. نجاح فتح وحفظ وإعادة فتح ملف من SAF.
+5. ثبات العناصر بعد release، وعدم تداخل pinch/pan مع الرسم.
+6. كل القوائم واللوحات قابلة للوصول ولا تتجاوز حدود الهاتف.
+7. Arabic/English mixed input works in command console and drawing text.
+8. لا crash في pause/resume/rotation/recovery smoke tests.
+9. توثيق أي أمر غير مدعوم أو جزئي للمستخدم بدلاً من إظهاره كأنه يعمل.
+10. نجاح CI والاختبار الفعلي على جهاز، وليس package validation فقط.
+
+## 8. ما لم يُنفذ بعد (بشفافية)
+
+- لم يتم تشغيل Rust workspace tests في هذه الجولة.
+- لم يتم تنفيذ Android emulator/device tests.
+- لم يتم تنفيذ SAF bridge أو أي تعديل برمجي وظيفي؛ هذه الوثيقة خطة تدقيق وتعديل.
+- لم تتم مراجعة جميع handlers والـ helper calls لكل تصريح من الـ 387 تصريحاً.
+- لم يتم قياس الأداء أو الذاكرة أو توافق ملفات فعلية.
+- لا يوجد في هذا التدقيق ما يبرر وصف التطبيق بأنه مكتمل أو جاهز للإصدار.
+
+**القرار:** ابدأ M0 inventory الآلي ثم M1 SAF وM2 touch؛ لا تبدأ إعادة تصميم عشوائية ولا تغيّر المحرك الأصلي. احتفظ بمحرك CADCraft كمصدر الحقيقة، واجعل Android host مسؤولاً عن خدمات النظام وتجربة اللمس والتخطيط.
