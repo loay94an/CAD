@@ -195,7 +195,8 @@ impl Default for UiState {
             docking: docking::default_workspace(),
 
             interface_language: i18n::Preference::default(),
-            show_toolsets: true,
+            // On phones, keep the canvas usable by default; Tool Sets remain available from Window/menu controls.
+            show_toolsets: !cfg!(target_os = "android"),
             show_palettes: true,
             show_toolbar: true,
             show_file_tabs: true,
