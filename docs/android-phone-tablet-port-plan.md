@@ -112,3 +112,17 @@ The Android PR build workflow is also installed on the base branch so GitHub Act
 2. Add Android-specific compact phone and expanded tablet presentation without changing shared CAD commands or document semantics.
 3. Validate touch gestures and stylus behavior, Arabic shaping/RTL, and Android pause/resume/rotation.
 4. Exercise core drawing operations and DXF round-trip on actual Android hardware; treat DWG as unsupported until its worker/bridge is independently validated.
+
+
+## Phone screenshot findings and responsive fixes — 2026-11-24
+
+The supplied Android phone screenshot shows the desktop workspace exceeding the phone's usable width: menu titles are clipped horizontally and the right dock's content is cut off at the screen edge. The phone also gives too much persistent chrome to desktop-oriented panels.
+
+Changes committed on `feat/android-phone-tablet`:
+- Android-only dock sizing: Tool Sets dock 150 points and right palette dock 190 points; desktop dock widths remain unchanged (220/300).
+- Android fresh-install default hides the Tool Sets panel to prioritize the canvas; it remains accessible from the existing Window/menu controls.
+- Android menu bar is horizontally scrollable so all top-level command menus remain reachable; desktop menu behavior is unchanged.
+
+Commits: `094a877`, `7ee59db`, `f9a9571`.
+
+These changes address the layout causes visible in the screenshot, but their visual result still needs a new Android APK and on-device verification. Existing saved user preferences may preserve a previously enabled Tool Sets panel. Do not mark the phone layout as verified until checked on the target phone.
