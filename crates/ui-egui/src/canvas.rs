@@ -891,6 +891,12 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
                     }
                 }
             }
+            press::Step::TouchDown(_)
+            | press::Step::TouchMove(_)
+            | press::Step::TouchUp(_)
+            | press::Step::TouchCancel => {
+                unreachable!("native touch steps must be normalized before canvas press handling");
+            }
         }
     }
     if !primary_down {
