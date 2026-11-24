@@ -15,7 +15,7 @@
 ## الملخص
 
 - الملفات المفحوصة: **40**
-- التصريحات الصريحة في هذه الملفات: **387**
+- التصريحات الصريحة المباشرة: **387**
 - أسماء مكررة بين الملفات: **0**
 - الملف `clipboard.rs` لا يحتوي تصريحاً مباشراً من هذا النمط؛ قد يحتوي helpers مستخدمة من أوامر أخرى.
 
@@ -190,3 +190,92 @@
 5. تحويل هذا الفهرس إلى JSON/CSV آلي حتى لا يتقادم عند إضافة أوامر جديدة.
 
 **تنبيه:** لا تفسر وجود ID في هذا الفهرس على أنه دعم Android أو نجاح اختبار الأمر.
+
+
+## التسجيلات الإضافية التي لا تظهر في ملفات الوحدات الأربعين
+
+### PGP / Alias commands
+
+يضيف `crates/engine/src/cmd.rs::command_specs()` أيضاً `file::alias_specs()`، وهي إعادة تصدير `pgp::specs` من `crates/engine/src/cmd/file/pgp.rs`:
+
+- `aliasedit`
+- `reinit`
+
+بالتالي، registry المحرك يجمع **389 CommandSpec** وفق بنية التسجيل الحالية: 387 تصريحاً مباشراً + 2 من PGP.
+
+### UI-only commands
+
+تحتوي `crates/ui-egui/src/menus.rs::UI_COMMANDS` على 60 إجراءً لا تمر عبر `CommandSpec` في محرك الأوامر:
+
+```text
+ui.spacemouse
+ui.spacemouse.calibrate
+ui.spacemouse.navigate
+ui.dock
+ui.dock.reset
+ui.open
+ui.newtemplate
+ui.saveas
+ui.sample
+ui.toggle.toolsets
+ui.panel.properties
+ui.panel.layers
+ui.toggle.quickcalc
+ui.panel.quickcalc
+ui.toggle.systemcursor
+ui.animations.system
+ui.animations.on
+ui.animations.off
+ui.animations
+ui.toggle.toolbar
+ui.toggle.filetabs
+ui.toggle.statusbar
+ui.toggle.cmdline
+ui.toggle.viewcube
+ui.toggle.ucsicon
+ui.toggle.ucsicon.origin
+ui.theme.system
+ui.theme.light
+ui.theme.dark
+ui.theme
+ui.saveformat.dxf
+ui.saveformat.dwg
+ui.saveformat
+ui.saveversion.2018
+ui.saveversion.2013
+ui.saveversion.2010
+ui.saveversion.2007
+ui.saveversion.2004
+ui.saveversion.2000
+ui.saveversion
+ui.toggle.menubar
+ui.hidepalettes
+ui.resetpalettes
+ui.start
+ui.dialog.layers
+ui.dialog.blocks
+ui.dialog.qselect
+ui.dialog.parameters
+ui.dialog.dsettings
+ui.updates.check
+ui.dialog.about
+ui.dialog.commands
+ui.toggle.history
+ui.cmdline.lines
+ui.cmdline.clear
+ui.dialog.language
+ui.dialog.find
+ui.shortcuts
+ui.language
+ui.quit
+```
+
+**المجموع المفهرس الآن:** 389 أمر محرك + 60 إجراء واجهة فقط. هذا لا يشمل أسماء aliases التي يضيفها المستخدم في ملفات PGP؛ فهي بيانات تشغيل وليست IDs جديدة في registry.
+
+## اختبارات تثبيت الفهرس
+
+أضيفت اختبارات تمنع تغيّر العدد أو تكرار IDs دون تحديث الفهرس:
+- `crates/engine/src/cmd.rs::registry_tests::command_registry_has_389_unique_ids`
+- `crates/ui-egui/src/menus.rs::ui_command_inventory_tests::ui_only_command_ids_are_unique_and_match_the_source_index`
+
+هذه الاختبارات تثبت العدد والتفرّد عند تشغيلها، لكنها لا تثبت جاهزية كل أمر على Android أو اكتمال handler mapping.
