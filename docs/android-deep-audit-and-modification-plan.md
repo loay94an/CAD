@@ -470,3 +470,40 @@
 - تُرجمت 14 عبارة في واجهة Find/Replace إلى العربية، مع الحفاظ على مفاتيح المصدر الإنجليزية وترتيب أعمدة TSV.
 - Commit: `495642136e0654ea58c5727ee595231aa16657f9`.
 - هذا إصلاح موضعي لا يعني اكتمال التعريب؛ لا تزال هناك مفاتيح تقنية غير مترجمة تحتاج مراجعة سياقية، كما يلزم اختبار اتجاه النص المختلط وظهور الخط العربي على Android.
+
+## 6. نقطة تنفيذ محدثة — 2026-11-24
+
+### التعديلات التي وصلت إلى الفرع
+- `b19bf560`: جعل شريط الأوامر يتكيف مع عرض الهاتف.
+- `49564213`: تعريب 14 نصاً في واجهة Find/Replace.
+- `98f41c37`: توثيق تقدم التعريب ومسارات العمل المتوازية.
+
+هذه تغييرات مصدرية موثقة، لكنها ليست شهادة اكتمال M3 أو M8؛ ما زالت تغطية بقية الشاشات والحوارات والاختبارات مطلوبة.
+
+### تحقق CI
+- Run 53 و54 أُلغيا بسبب وصول commits أحدث على الفرع.
+- Run 55: [45316634887](https://github.com/loay94an/CAD/actions/runs/45316634887)، commit `495642136e0654ea58c5727ee595231aa16657f9`.
+- نجحت خطوات إعداد Rust وJava وAndroid SDK/NDK.
+- عند آخر فحص كانت خطوة `Verify engine command registry inventory` قيد التنفيذ؛ لم تصل بعد إلى اختبارات UI/Touch أو بناء APK.
+- لا يوجد APK معتمد من هذا التشغيل حتى اكتمال التحقق ورفع artifact.
+
+### تدقيق SAF على المصدر الحالي
+تم فحص `Services` و`Pick` و`StartPick` و`pick_then` و`pick_then_open` و`finish_pick` في `crates/ui-egui/src/lib.rs`، كما فُحصت `opening.rs` و`exchange.rs` و`engine/cmd/file.rs` وAndroid host و`MainActivity.java`.
+
+النتائج المؤكدة:
+1. `Services` يعيد حالياً مسارات نصية (`String`) من منتقي الملفات، ولا يعرّف document URI أو stream/bytes abstraction.
+2. `opening::Opening` يرسل `PathBuf` إلى `read_file(&Path)` على worker thread.
+3. `exchange.rs` يمرر المسار إلى أوامر `import` و`publish` و`export`.
+4. `engine/cmd/file.rs` ينفذ الحفظ عبر filesystem ويحتوي سلوك backup/atomic/metadata؛ لا يجوز تجاوزه عند إضافة SAF.
+5. Android host لا يزال ينشئ `Services::default()`.
+6. `MainActivity.java` مجرد `GameActivity` ولا يحتوي SAF bridge.
+
+**قرار التنفيذ:** لا نعيد URI على أنه Path ولا نضيف منتقي ملفات منفصلاً عن دورة الحفظ. يجب تصميم adapter مستندات Android مع عمليات read/write، وإكمال الكتابة بعد أن ينتهي handler من إنتاج الملف، وإدارة persistable URI permissions والملفات التابعة. يجب أن تبقى filesystem adapter الحالية لسطح المكتب.
+
+### بوابات القبول التالية
+- M0: إنهاء ربط كل CommandInfo بالـ handler والـ params والـ interactive prompts والاختبارات، وليس الاكتفاء بعدّ IDs.
+- M1: اختبار Open → Edit → Save → Close → Reopen، إضافة إلى Save As وExport وCancel وفشل provider والملفات الكبيرة.
+- M2: نجاح اختبارات canvas في CI ثم اختبار line/polyline/circle/drag/pinch/cancel فعلياً على Android.
+- M3/M4: فصل تخطيط الهاتف ذي المساحة المحدودة عن workspace التابلت، مع الحفاظ على إمكان الوصول لكل أمر.
+- M5–M9: اختبار IME، اللوحات، الصيغ، RTL، والأداء على أجهزة فعلية.
+- M10: لا إصدار قبل نجاح كل بوابات القبول ورفع APK موثق.
