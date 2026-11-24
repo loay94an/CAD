@@ -278,8 +278,29 @@ struct Navigation<'a> {
 
 fn navigate_canvas(app: &mut CadApp, ui: &mut egui::Ui, nav: &Navigation<'_>) -> Option<(bool, bool)> {
     let p = nav.pointer;
-    let inside = p.hover_pos.is_some_and(|at| nav.rect.contains(at) && ui.ctx().layer_id_at(at) == Some(ui.layer_id()) && nav.response.hovered());
+    let touch = ui.input(|i| i.multi_touch());
+    let touch_active = touch.is_some();
+    let gesture_pos = touch.map(|touch| touch.center_pos).or(p.hover_pos);
+    let inside = gesture_pos.is_some_and(|at| {
+        nav.rect.contains(at)
+            && ui.ctx().layer_id_at(at) == Some(ui.layer_id())
+            && (touch_active || nav.response.hovered())
+    });
     let on_menu = p.hover_pos.is_some_and(|at| over_canvas_menu(app, at));
+    // Android delivers a two-finger gesture separately from the primary pointer. Use the
+    // gesture centroid for both zoom anchoring and pan so the view follows the fingers.
+    if let Some(touch) = touch.filter(|_| inside) {
+        if touch.translation_delta != egui::Vec2::ZERO
+            && let Ok(st) = app.session.state_mut()
+        {
+            let view = st.view();
+            st.set_view_quiet(cadcraft_engine::View {
+                center: view.center - nav.xf.screen_delta_to_world(touch.translation_delta),
+                height: view.height,
+                twist: view.twist,
+            });
+        }
+    }
     app.session.ctrl_down = p.mods.ctrl;
     ui.input(|i| {
         for event in &i.raw.events {
@@ -340,10 +361,15 @@ fn handle_scroll_zoom(app: &mut CadApp, ui: &mut egui::Ui, nav: &Navigation<'_>,
         let about = nav.xf.to_world(at);
         let _ = app.session.zoom_about(factor, about);
     }
-    let pinch = ui.input(|i| crate::animation::zoom_delta(i, &opts, app.shows_animations()));
+    let (pinch, pinch_center) = ui.input(|i| {
+        (
+            crate::animation::zoom_delta(i, &opts, app.shows_animations()),
+            i.multi_touch().map(|touch| touch.center_pos),
+        )
+    });
     if inside
         && (pinch - 1.0).abs() > 1e-4
-        && let Some(at) = p.hover_pos
+        && let Some(at) = pinch_center.or(p.hover_pos)
     {
         let _ = app.session.zoom_about(f64::from(pinch), nav.xf.to_world(at));
     }
@@ -908,9 +934,12 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
     }
     let idle_double = dbl_primary && app.session.running.is_none();
     let grip_clicks = !hatch_dialog && !idle_double;
-    let click_used = handle_presses(app, ui, &PressContext { rect, xf, inside, middle_down, mods, grip_clicks });
+    let touch_active = ui.input(|i| i.multi_touch().is_some());
+    let click_used = handle_presses(app, ui, &PressContext {
+        rect, xf, inside: inside && !touch_active, middle_down, mods, grip_clicks,
+    });
 
-    let (raw_world, dyn_frame) = update_canvas_cursor(app, ui, &xf, inside, hover_pos);
+    let (raw_world, dyn_frame) = update_canvas_cursor(app, ui, &xf, inside && !touch_active, hover_pos);
 
     // A click on the Dynamic Input options menu picks the keyword; elsewhere it closes the menu.
     let mut picked = false;
@@ -930,7 +959,7 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
         app.session.pending_window = None;
         app.canvas.press = None;
     }
-    let pressed_primary = pressed_primary && !picked && !hatch_dialog && !idle_dbl;
+    let pressed_primary = pressed_primary && !touch_active && !picked && !hatch_dialog && !idle_dbl;
     let cycled = pressed_primary && !click_used && !middle_down && cycle_click(app, &xf, hover_pos, raw_world.filter(|_| inside), mods.shift);
     // Clicks the presses above left alone: on grips, and during ZOOM Realtime.
     if inside
@@ -995,7 +1024,7 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
         crate::context_menu::show(app, &resp);
     }
 
-    update_hover(app, ui, inside, hover_pos, raw_world, scale);
+    update_hover(app, ui, inside && !touch_active, hover_pos, raw_world, scale);
 
     paint_canvas(CanvasPaint {
         app,
