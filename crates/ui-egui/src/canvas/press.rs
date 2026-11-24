@@ -88,12 +88,18 @@ pub(crate) enum Step {
 /// The primary-button presses, pointer moves and releases among a frame's events, in order. A slow
 /// frame can hold several clicks; each press is its own step (#815).
 pub(crate) fn steps(events: &[egui::Event]) -> Vec<Step> {
+    // Android sends native Touch events. Some backends also synthesize pointer events for the
+    // same contact; prefer the native stream for this frame to avoid double-placing CAD points.
+    let has_touch = events.iter().any(|event| matches!(event, egui::Event::Touch { .. }));
     events
         .iter()
-        .filter_map(|e| match *e {
-            egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: true, modifiers } => Some(Step::Down(pos, modifiers)),
-            egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: false, .. } => Some(Step::Up(pos)),
-            egui::Event::PointerMoved(pos) => Some(Step::Move(pos)),
+        .filter_map(|event| match *event {
+            egui::Event::Touch { phase: egui::TouchPhase::Start, pos, .. } => Some(Step::Down(pos, Modifiers::NONE)),
+            egui::Event::Touch { phase: egui::TouchPhase::Move, pos, .. } => Some(Step::Move(pos)),
+            egui::Event::Touch { phase: egui::TouchPhase::End | egui::TouchPhase::Cancel, pos, .. } => Some(Step::Up(pos)),
+            egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: true, modifiers } if !has_touch => Some(Step::Down(pos, modifiers)),
+            egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: false, .. } if !has_touch => Some(Step::Up(pos)),
+            egui::Event::PointerMoved(pos) if !has_touch => Some(Step::Move(pos)),
             _ => None,
         })
         .collect()
@@ -143,6 +149,17 @@ mod tests {
         let elsewhere = Press::new(pos2(100.0, 100.0), false);
         assert!(!elsewhere.is_on_grip());
         assert_eq!(elsewhere.grip_click(pos2(100.0, 100.0)), None);
+    }
+
+    #[test]
+    fn native_touch_start_move_end_becomes_a_complete_press_sequence() {
+        let pos = |x| egui::pos2(x, 20.0);
+        let events = vec![
+            egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::Start, pos: pos(10.0), force: None },
+            egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::Move, pos: pos(40.0), force: None },
+            egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(1), phase: egui::TouchPhase::End, pos: pos(40.0), force: None },
+        ];
+        assert_eq!(steps(&events), vec![Step::Down(pos(10.0), Modifiers::NONE), Step::Move(pos(40.0)), Step::Up(pos(40.0))]);
     }
 
     #[test]
