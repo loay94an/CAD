@@ -516,3 +516,28 @@ fn native_touch_cancel_discards_a_buffered_first_contact() {
     assert!(pending.is_none());
 }
 
+
+#[test]
+fn second_native_touch_start_cancels_the_buffered_first_contact() {
+    let first = egui::pos2(12.0, 18.0);
+    let second = egui::pos2(42.0, 48.0);
+    let mut pending = None;
+    let first_steps = normalize_touch_steps(
+        vec![press::Step::TouchDown(first)],
+        &mut pending,
+        1.0,
+        egui::Modifiers::NONE,
+    );
+    assert!(first_steps.is_empty());
+    assert!(pending.is_some());
+
+    let second_steps = normalize_touch_steps(
+        vec![press::Step::TouchDown(second)],
+        &mut pending,
+        1.04,
+        egui::Modifiers::NONE,
+    );
+    assert!(second_steps.is_empty(), "neither contact should become a CAD point");
+    assert!(pending.is_none());
+}
+
