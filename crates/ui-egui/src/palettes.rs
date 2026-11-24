@@ -1478,6 +1478,23 @@ mod tests {
     use crate::Services;
     use cadcraft_engine::Session;
     use egui::{Color32, Shape};
+
+    /// Every tool exposed by either Tool Sets tab must resolve to a real engine or UI command.
+    /// This catches visible buttons that silently do nothing because their command ID drifted.
+    #[test]
+    fn every_tool_button_has_a_registered_command() {
+        let mut missing = Vec::new();
+        for (tab, groups) in [("Drafting", DRAFTING), ("Modeling", MODELING)] {
+            for (group, large, small) in groups {
+                for (_, command, label) in large.iter().chain(small.iter()) {
+                    if !command_known(command) {
+                        missing.push(format!("{tab}/{group}/{label}: {command}"));
+                    }
+                }
+            }
+        }
+        assert!(missing.is_empty(), "Tool Sets contains unregistered commands: {missing:#?}");
+    }
     use egui_kittest::kittest::Queryable;
 
     #[test]
