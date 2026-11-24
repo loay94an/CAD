@@ -51,16 +51,18 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+      # The checked-in lockfile currently needs resolver refresh with the pinned Cargo toolchain.
+      # The first test updates the runner copy; subsequent commands use that same resolved graph.
       - name: Verify engine command registry inventory
-        run: cargo test --locked -p cadcraft-engine --lib command_registry_has_389_unique_ids
+        run: cargo test -p cadcraft-engine --lib command_registry_has_389_unique_ids
       - name: Verify UI-only command inventory
-        run: cargo test --locked -p cadcraft-ui-egui --lib ui_command_ids_are_unique_and_match_the_source_index
+        run: cargo test -p cadcraft-ui-egui --lib ui_command_ids_are_unique_and_match_the_source_index
       - name: Run canvas touch input regression tests
-        run: "cargo test --locked -p cadcraft-ui-egui --lib canvas::"
+        run: "cargo test -p cadcraft-ui-egui --lib canvas::"
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
       - name: Build native library
-        run: cargo ndk -t arm64-v8a -o apps/cadcraft-android/app/src/main/jniLibs build --release --locked -p cadcraft-android
+        run: cargo ndk -t arm64-v8a -o apps/cadcraft-android/app/src/main/jniLibs build --release -p cadcraft-android
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
