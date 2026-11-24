@@ -120,6 +120,14 @@ fn normalize_touch_steps(
     modifiers: egui::Modifiers,
 ) -> Vec<press::Step> {
     let mut steps = Vec::with_capacity(raw_steps.len() + 2);
+    let touch_starts = raw_steps.iter().filter(|step| matches!(step, press::Step::TouchDown(_))).count();
+    // A second native contact can arrive before egui has produced its multi_touch snapshot.
+    // If a contact is already buffered, or multiple starts arrive together, classify this frame
+    // as navigation and discard the first point rather than allowing a second Down to replace it.
+    if touch_starts > 1 || (*pending).is_some() && touch_starts > 0 {
+        *pending = None;
+        return steps;
+    }
     let has_touch_cancel = raw_steps.iter().any(|step| matches!(step, press::Step::TouchCancel));
     if has_touch_cancel {
         *pending = None;
