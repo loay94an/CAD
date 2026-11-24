@@ -1242,3 +1242,19 @@ mod units_dialog_tests {
         assert_eq!((h.i64("LUNITS", 0), h.i64("LUPREC", 0), h.i64("INSUNITS", 0)), (4, 3, 4));
     }
 }
+
+
+#[cfg(test)]
+mod ui_command_inventory_tests {
+    use super::UI_COMMANDS;
+    use std::collections::HashSet;
+
+    #[test]
+    fn ui_only_command_ids_are_unique_and_match_the_source_index() {
+        assert_eq!(UI_COMMANDS.len(), 60, "update docs/android-command-source-index.md when changing UI_COMMANDS");
+        let mut ids = HashSet::with_capacity(UI_COMMANDS.len());
+        for (id, _, _, _) in UI_COMMANDS {
+            assert!(ids.insert(*id), "duplicate UI command ID: {id}");
+        }
+    }
+}
