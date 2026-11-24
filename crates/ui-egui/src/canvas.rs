@@ -935,9 +935,18 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
     let idle_double = dbl_primary && app.session.running.is_none();
     let grip_clicks = !hatch_dialog && !idle_double;
     let touch_active = ui.input(|i| i.multi_touch().is_some());
-    let click_used = handle_presses(app, ui, &PressContext {
-        rect, xf, inside: inside && !touch_active, middle_down, mods, grip_clicks,
-    });
+    if touch_active {
+        // A second finger changes the interaction from drawing to view navigation. Drop any
+        // pending one-finger press so lifting either finger cannot commit an accidental point.
+        app.canvas.press = None;
+    }
+    let click_used = if touch_active {
+        false
+    } else {
+        handle_presses(app, ui, &PressContext {
+            rect, xf, inside, middle_down, mods, grip_clicks,
+        })
+    };
 
     let (raw_world, dyn_frame) = update_canvas_cursor(app, ui, &xf, inside && !touch_active, hover_pos);
 
