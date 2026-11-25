@@ -959,8 +959,9 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
             }
         }
     }
-    if !primary_down {
-        // The button came up where we didn't see it (outside the window, say).
+    if !primary_down && app.canvas.touch_pending.is_none() {
+        // A native finger may not be represented by egui's synthetic primary-button state.
+        // Keep its press alive until the matching TouchUp/Cancel has been normalized.
         app.canvas.press = None;
     }
     click_used
