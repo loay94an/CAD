@@ -881,7 +881,11 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
         match step {
             press::Step::Down(pos, m) => {
                 app.canvas.press = None;
-                if !inside || !rect.contains(pos) || middle_down {
+                // Native Android touch coordinates are authoritative for canvas hit-testing.
+                // A single-finger stream may not update egui's hover/layer state in the same frame;
+                // accept the contact when its own position is inside the canvas rectangle.
+                let contact_inside = inside || native_touch_event && rect.contains(pos);
+                if !contact_inside || !rect.contains(pos) || middle_down {
                     continue;
                 }
                 // A press on the Dynamic Input options menu is the menu's (picked on release);
