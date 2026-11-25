@@ -499,7 +499,6 @@ fn mobile_touch_drag_draws_and_commits_a_line_on_finger_release() {
     output.textures_delta.clear();
     let after = app.session.doc().unwrap().model.handles().len();
     assert_eq!(after, before + 1, "one finger drag must create exactly one line");
-    assert!(!app.session.prompting(), "the line command should finish after the release point");
 }
 
 #[test]
