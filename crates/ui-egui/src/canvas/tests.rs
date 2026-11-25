@@ -532,7 +532,7 @@ fn native_touch_move_is_buffered_until_single_finger_gesture_is_recognized() {
 
     let second = normalize_touch_steps(Vec::new(), &mut pending, 1.0 + TOUCH_GESTURE_DELAY, egui::Modifiers::NONE);
     assert_eq!(second, vec![press::Step::Down(origin, egui::Modifiers::NONE), press::Step::TouchMove(moved)]);
-    assert!(pending.is_none());
+    assert!(pending.is_some_and(|contact| contact.recognized), "recognized contact must remain active until its matching finger-up");
 }
 
 #[test]
