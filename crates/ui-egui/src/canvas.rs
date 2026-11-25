@@ -1297,7 +1297,10 @@ fn press_at(app: &mut CadApp, xf: &Xf, ctx: &egui::Context, pos: Pos2, mods: egu
     let raw = xf.to_world(pos);
     let dyn_frame = crate::cmdline::dyn_frame(app);
     track_cursor(app, Some(raw), xf, ctx, dyn_frame);
-    let Some(p) = app.canvas.cursor else { return false };
+    // A native finger event can be inside the canvas even when egui has no hover cursor
+    // for that frame. The contact position is still a valid CAD point; retain snap-adjusted
+    // cursor coordinates when available, otherwise use the authoritative press position.
+    let p = app.canvas.cursor.unwrap_or(raw);
     if app.session.prompting() {
         // Ctrl held while picking the point of a grip edit makes copies (the Copy option).
         if mods.ctrl && app.session.running.as_ref().is_some_and(|r| r.id == "grip") {
