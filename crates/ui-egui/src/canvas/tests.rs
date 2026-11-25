@@ -485,6 +485,7 @@ fn mobile_touch_drag_draws_and_commits_a_line_on_finger_release() {
     let end = xf.to_screen(Vec2::new(10.0, 10.0));
     let before = app.session.doc().unwrap().model.handles().len();
     let events = vec![
+        egui::Event::PointerMoved(end),
         egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::Start, pos: start, force: None },
         egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::Move, pos: end, force: None },
         egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::End, pos: end, force: None },
