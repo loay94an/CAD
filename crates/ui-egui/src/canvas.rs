@@ -374,7 +374,9 @@ fn navigate_canvas(app: &mut CadApp, ui: &mut egui::Ui, nav: &Navigation<'_>) ->
     let gesture_pos = touch.as_ref().map(|touch| touch.center_pos).or(native_touch_pos).or(p.hover_pos);
     let inside = gesture_pos.is_some_and(|at| {
         nav.rect.contains(at)
-            && ui.ctx().layer_id_at(at) == Some(ui.layer_id())
+            // Native touch is delivered to this UI context without a synthetic hover; the
+            // canvas rectangle is the authoritative hit target for its single-finger stream.
+            && (native_touch_pos.is_some() || ui.ctx().layer_id_at(at) == Some(ui.layer_id()))
             && (touch_active || native_touch_pos.is_some() || nav.response.hovered())
     });
     let on_menu = p.hover_pos.is_some_and(|at| over_canvas_menu(app, at));
@@ -857,6 +859,12 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
     let PressContext { rect, xf, inside, middle_down, mods, grip_clicks } = *context;
     let (raw_steps, now, primary_down, focused) =
         ui.input(|i| (press::steps(&i.events), i.time, i.pointer.primary_down(), i.focused));
+    // Native touch may be completed entirely within one egui frame (down, move, up). Its
+    // normalized press is valid even though egui's synthetic mouse button is never down.
+    let native_touch_event = raw_steps.iter().any(|step| matches!(
+        step,
+        press::Step::TouchDown(_) | press::Step::TouchMove(_) | press::Step::TouchUp(_) | press::Step::TouchCancel
+    ));
     // A paused/backgrounded Android activity can lose its matching TouchUp/Cancel event.
     // Never let a buffered contact turn into a CAD point after focus is lost.
     if !focused {
@@ -967,9 +975,10 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
             }
         }
     }
-    if !primary_down && app.canvas.touch_pending.is_none() {
+    if !primary_down && app.canvas.touch_pending.is_none() && !native_touch_event {
         // A native finger may not be represented by egui's synthetic primary-button state.
-        // Keep its press alive until the matching TouchUp/Cancel has been normalized.
+        // Keep its press alive while processing a native touch frame, including a complete
+        // down/move/up sequence delivered together by Android.
         app.canvas.press = None;
     }
     click_used
