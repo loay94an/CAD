@@ -363,11 +363,19 @@ fn navigate_canvas(app: &mut CadApp, ui: &mut egui::Ui, nav: &Navigation<'_>) ->
     let p = nav.pointer;
     let touch = ui.input(|i| i.multi_touch());
     let touch_active = touch.is_some();
-    let gesture_pos = touch.as_ref().map(|touch| touch.center_pos).or(p.hover_pos);
+    // A single native Android finger is not necessarily mirrored as an egui mouse pointer.
+    // Use the native contact position for hit-testing instead of requiring Response::hovered().
+    let native_touch_pos = ui.input(|i| {
+        i.raw.events.iter().rev().find_map(|event| match event {
+            egui::Event::Touch { phase: egui::TouchPhase::Start | egui::TouchPhase::Move | egui::TouchPhase::End, pos, .. } => Some(*pos),
+            _ => None,
+        })
+    });
+    let gesture_pos = touch.as_ref().map(|touch| touch.center_pos).or(native_touch_pos).or(p.hover_pos);
     let inside = gesture_pos.is_some_and(|at| {
         nav.rect.contains(at)
             && ui.ctx().layer_id_at(at) == Some(ui.layer_id())
-            && (touch_active || nav.response.hovered())
+            && (touch_active || native_touch_pos.is_some() || nav.response.hovered())
     });
     let on_menu = p.hover_pos.is_some_and(|at| over_canvas_menu(app, at));
     // Android delivers a two-finger gesture separately from the primary pointer. Use the
