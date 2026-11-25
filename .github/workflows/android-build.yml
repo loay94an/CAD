@@ -2,7 +2,7 @@ name: Android debug APK
 
 on:
   push:
-    branches: [feat/android-phone-tablet]
+    branches: [feat/android-phone-tablet, feat/android-icon-updatable-v1]
     paths:
       - "apps/cadcraft-android/**"
       - "crates/**"
