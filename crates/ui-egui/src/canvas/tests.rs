@@ -480,6 +480,9 @@ fn mobile_touch_drag_draws_and_commits_a_line_on_finger_release() {
     let screen = Rect::from_min_size(Pos2::ZERO, vec2(1400.0, 900.0));
     let _ = painted_text(&mut app, &ctx, screen.center());
     app.session.cmdline("line").unwrap();
+    // Starting LINE changes the prompt/layout. Render that state before deriving screen
+    // coordinates so the synthetic finger uses the same canvas transform as the event frame.
+    let _ = painted_text(&mut app, &ctx, screen.center());
     let xf = app.canvas.xf.unwrap();
     let start = xf.to_screen(Vec2::ZERO);
     let end = xf.to_screen(Vec2::new(10.0, 10.0));
