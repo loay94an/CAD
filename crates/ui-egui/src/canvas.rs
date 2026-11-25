@@ -359,10 +359,33 @@ struct Navigation<'a> {
     pointer: PointerInput,
 }
 
+/// True only when this frame carries contacts from at least two distinct native fingers.
+/// egui's multi-touch snapshot can also be present during a single native contact on Android;
+/// treating that as navigation would discard the very press stream used by drawing tools.
+fn has_multiple_native_touches(ui: &egui::Ui) -> bool {
+    ui.input(|i| {
+        let mut ids: Vec<egui::TouchId> = Vec::new();
+        for event in &i.raw.events {
+            if let egui::Event::Touch { id, phase, .. } = event {
+                match phase {
+                    egui::TouchPhase::Start | egui::TouchPhase::Move => {
+                        if !ids.contains(id) { ids.push(*id); }
+                    }
+                    egui::TouchPhase::End | egui::TouchPhase::Cancel => {
+                        ids.retain(|active| active != id);
+                    }
+                }
+                if ids.len() >= 2 { return true; }
+            }
+        }
+        false
+    })
+}
+
 fn navigate_canvas(app: &mut CadApp, ui: &mut egui::Ui, nav: &Navigation<'_>) -> Option<(bool, bool)> {
     let p = nav.pointer;
     let touch = ui.input(|i| i.multi_touch());
-    let touch_active = touch.is_some();
+    let touch_active = has_multiple_native_touches(ui);
     // A single native Android finger is not necessarily mirrored as an egui mouse pointer.
     // Use the native contact position for hit-testing instead of requiring Response::hovered().
     let native_touch_pos = ui.input(|i| {
@@ -1089,7 +1112,7 @@ pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
     }
     let idle_double = dbl_primary && app.session.running.is_none();
     let grip_clicks = !hatch_dialog && !idle_double;
-    let touch_active = ui.input(|i| i.multi_touch().is_some());
+    let touch_active = has_multiple_native_touches(ui);
     if touch_active {
         // A second finger changes the interaction from drawing to view navigation. Drop both the
         // buffered first contact and any already active press; neither finger may commit a point.
