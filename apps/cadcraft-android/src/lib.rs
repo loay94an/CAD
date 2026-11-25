@@ -84,7 +84,7 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
     let result = eframe::run_native(
         "CADCraft",
         options,
-        Box::new(|cc| {
+        Box::new(move |cc| {
             let phase = std::time::Instant::now();
             let session = Session::new();
             log::info!("CADCraft startup: Session::new completed in {} ms", phase.elapsed().as_millis());
