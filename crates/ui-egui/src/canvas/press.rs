@@ -90,6 +90,8 @@ pub(crate) enum Step {
     TouchDown(Pos2),
     TouchMove(Pos2),
     TouchUp(Pos2),
+    /// A native touch drag ended; the release may provide the second CAD point.
+    TouchDragEnd(Pos2),
     TouchCancel,
 }
 

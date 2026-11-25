@@ -71,8 +71,10 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
     android_logger::init_once(
         android_logger::Config::default().with_max_level(log::LevelFilter::Info),
     );
+    let startup = std::time::Instant::now();
     log::info!("Starting CADCraft Android host");
     install_io();
+    log::info!("CADCraft startup: I/O codecs installed in {} ms", startup.elapsed().as_millis());
 
     let options = eframe::NativeOptions {
         android_app: Some(app),
@@ -82,9 +84,17 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
     let result = eframe::run_native(
         "CADCraft",
         options,
-        Box::new(|cc| {
-            let mut cad = CadApp::new(Session::new(), Services::default());
+        Box::new(move |cc| {
+            let phase = std::time::Instant::now();
+            let session = Session::new();
+            log::info!("CADCraft startup: Session::new completed in {} ms", phase.elapsed().as_millis());
+
+            let phase = std::time::Instant::now();
+            let mut cad = CadApp::new(session, Services::default());
             cad.system_languages = vec!["ar".to_owned()];
+            log::info!("CADCraft startup: CadApp constructed in {} ms", phase.elapsed().as_millis());
+
+            let phase = std::time::Instant::now();
             if let Some(storage) = cc.storage {
                 if let Some(profile) = storage.get_string(cadcraft_ui_egui::options::PROFILE_KEY) {
                     cad.load_profile(&profile);
@@ -93,9 +103,13 @@ pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
                     cad.load_prefs(&prefs);
                 }
             }
-            if let Some(render_state) = &cc.wgpu_render_state {
-                cad.set_wgpu(render_state, None);
-            }
+            log::info!("CADCraft startup: persisted settings restored in {} ms", phase.elapsed().as_millis());
+
+            // Keep the custom CAD canvas on its CPU fallback on Android. eframe still uses its
+            // normal wgpu renderer for the UI surface; skipping the extra CAD GPU pipeline avoids
+            // an additional first-frame shader/buffer initialization path on mobile GPUs.
+            log::info!("CADCraft startup: using CPU CAD canvas fallback on Android");
+            log::info!("CADCraft startup: app initialization completed in {} ms", startup.elapsed().as_millis());
             Ok(Box::new(AndroidShell(cad)))
         }),
     );

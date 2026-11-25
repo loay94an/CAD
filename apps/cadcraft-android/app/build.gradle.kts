@@ -10,8 +10,9 @@ android {
         applicationId = "ai.storyteller.cadcraft"
         minSdk = 23
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.21.0-android"
+        // Keep the package identity stable and increment this for every installable update.
+        versionCode = 2
+        versionName = "0.21.1-android"
         ndk {
             abiFilters += "arm64-v8a"
         }

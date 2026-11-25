@@ -105,6 +105,7 @@ struct PendingTouch {
     latest: Option<Pos2>,
     started_at: f64,
     modifiers: egui::Modifiers,
+    recognized: bool,
 }
 
 /// Give Android a short window to recognize a two-finger navigation gesture before committing
@@ -119,11 +120,9 @@ fn normalize_touch_steps(
     now: f64,
     modifiers: egui::Modifiers,
 ) -> Vec<press::Step> {
-    let mut steps = Vec::with_capacity(raw_steps.len() + 2);
+    let mut steps = Vec::with_capacity(raw_steps.len() + 3);
     let touch_starts = raw_steps.iter().filter(|step| matches!(step, press::Step::TouchDown(_))).count();
     // A second native contact can arrive before egui has produced its multi_touch snapshot.
-    // If a contact is already buffered, or multiple starts arrive together, classify this frame
-    // as navigation and discard the first point rather than allowing a second Down to replace it.
     if touch_starts > 1 || (*pending).is_some() && touch_starts > 0 {
         *pending = None;
         return steps;
@@ -131,35 +130,45 @@ fn normalize_touch_steps(
     let has_touch_cancel = raw_steps.iter().any(|step| matches!(step, press::Step::TouchCancel));
     if has_touch_cancel {
         *pending = None;
-    } else if let Some(contact) = *pending
+    } else if let Some(contact) = pending.as_mut()
+        && !contact.recognized
         && now - contact.started_at >= TOUCH_GESTURE_DELAY
     {
-        *pending = None;
+        contact.recognized = true;
         steps.push(press::Step::Down(contact.origin, contact.modifiers));
         if let Some(latest) = contact.latest {
-            steps.push(press::Step::Move(latest));
+            steps.push(press::Step::TouchMove(latest));
         }
     }
     for step in raw_steps {
         match step {
             press::Step::TouchDown(pos) => {
-                *pending = Some(PendingTouch { origin: pos, latest: None, started_at: now, modifiers });
+                *pending = Some(PendingTouch { origin: pos, latest: None, started_at: now, modifiers, recognized: false });
             }
             press::Step::TouchMove(pos) => {
-                if let Some(contact) = pending {
+                if let Some(contact) = pending.as_mut() {
                     contact.latest = Some(pos);
-                } else {
-                    steps.push(press::Step::Move(pos));
+                    if contact.recognized {
+                        steps.push(press::Step::TouchMove(pos));
+                    }
                 }
             }
             press::Step::TouchUp(pos) => {
                 if let Some(contact) = pending.take() {
-                    steps.push(press::Step::Down(contact.origin, contact.modifiers));
-                    if let Some(latest) = contact.latest {
-                        steps.push(press::Step::Move(latest));
+                    let moved = contact.latest.unwrap_or(pos).distance(contact.origin) > press::TOLERANCE
+                        || pos.distance(contact.origin) > press::TOLERANCE;
+                    if !contact.recognized {
+                        steps.push(press::Step::Down(contact.origin, contact.modifiers));
+                        if let Some(latest) = contact.latest {
+                            steps.push(press::Step::TouchMove(latest));
+                        }
+                    }
+                    if moved {
+                        steps.push(press::Step::TouchDragEnd(pos));
+                    } else {
+                        steps.push(press::Step::Up(pos));
                     }
                 }
-                steps.push(press::Step::Up(pos));
             }
             press::Step::TouchCancel => {
                 *pending = None;
@@ -354,11 +363,21 @@ fn navigate_canvas(app: &mut CadApp, ui: &mut egui::Ui, nav: &Navigation<'_>) ->
     let p = nav.pointer;
     let touch = ui.input(|i| i.multi_touch());
     let touch_active = touch.is_some();
-    let gesture_pos = touch.as_ref().map(|touch| touch.center_pos).or(p.hover_pos);
+    // A single native Android finger is not necessarily mirrored as an egui mouse pointer.
+    // Use the native contact position for hit-testing instead of requiring Response::hovered().
+    let native_touch_pos = ui.input(|i| {
+        i.raw.events.iter().rev().find_map(|event| match event {
+            egui::Event::Touch { phase: egui::TouchPhase::Start | egui::TouchPhase::Move | egui::TouchPhase::End, pos, .. } => Some(*pos),
+            _ => None,
+        })
+    });
+    let gesture_pos = touch.as_ref().map(|touch| touch.center_pos).or(native_touch_pos).or(p.hover_pos);
     let inside = gesture_pos.is_some_and(|at| {
         nav.rect.contains(at)
-            && ui.ctx().layer_id_at(at) == Some(ui.layer_id())
-            && (touch_active || nav.response.hovered())
+            // Native touch is delivered to this UI context without a synthetic hover; the
+            // canvas rectangle is the authoritative hit target for its single-finger stream.
+            && (native_touch_pos.is_some() || ui.ctx().layer_id_at(at) == Some(ui.layer_id()))
+            && (touch_active || native_touch_pos.is_some() || nav.response.hovered())
     });
     let on_menu = p.hover_pos.is_some_and(|at| over_canvas_menu(app, at));
     // Android delivers a two-finger gesture separately from the primary pointer. Use the
@@ -840,6 +859,12 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
     let PressContext { rect, xf, inside, middle_down, mods, grip_clicks } = *context;
     let (raw_steps, now, primary_down, focused) =
         ui.input(|i| (press::steps(&i.events), i.time, i.pointer.primary_down(), i.focused));
+    // Native touch may be completed entirely within one egui frame (down, move, up). Its
+    // normalized press is valid even though egui's synthetic mouse button is never down.
+    let native_touch_event = raw_steps.iter().any(|step| matches!(
+        step,
+        press::Step::TouchDown(_) | press::Step::TouchMove(_) | press::Step::TouchUp(_) | press::Step::TouchCancel
+    ));
     // A paused/backgrounded Android activity can lose its matching TouchUp/Cancel event.
     // Never let a buffered contact turn into a CAD point after focus is lost.
     if !focused {
@@ -888,6 +913,16 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
                     p.moved(pos, now);
                 }
             }
+            press::Step::TouchMove(pos) => {
+                if let Some(p) = &mut app.canvas.press {
+                    p.moved(pos, now);
+                }
+                if app.session.prompting() {
+                    let raw = xf.to_world(pos);
+                    let dyn_frame = crate::cmdline::dyn_frame(app);
+                    track_cursor(app, Some(raw), &xf, ui.ctx(), dyn_frame);
+                }
+            }
             press::Step::Cancel => {
                 // A cancelled Android contact is not a finger-up. In particular, do not
                 // complete a selection-window drag or activate a grip on cancellation.
@@ -906,27 +941,44 @@ fn handle_presses(app: &mut CadApp, ui: &egui::Ui, context: &PressContext) -> bo
                     }
                     continue;
                 }
-                // PICKDRAG off: a window takes two clicks, a drag doesn't close it (#1032).
                 if app.session.settings.pickdrag && p.released_as_drag(pos, now) && p.opened_window && app.session.pending_window.is_some() {
                     let end = xf.to_world(pos);
                     let done = if app.session.prompting() { app.session.input(Input::Point(end)) } else { app.session.idle_click(end, mods.shift) };
-                    if let Err(e) = done {
-                        app.session.echo(e.to_string());
-                    }
+                    if let Err(e) = done { app.session.echo(e.to_string()); }
                 }
             }
-            press::Step::TouchDown(_)
-            | press::Step::TouchMove(_)
-            | press::Step::TouchUp(_)
-            | press::Step::TouchCancel => {
+            press::Step::TouchDragEnd(pos) => {
+                let Some(p) = app.canvas.press.take() else { continue };
+                click_used = true;
+                if p.is_on_grip() {
+                    if grip_clicks && let Some((at, m)) = p.grip_click(pos) {
+                        if let Some(g) = crate::dyngrips::at(app, &xf, Some(at)) {
+                            crate::dyngrips::click(app, g);
+                        } else if let Some(g) = grip_at(app, &xf, Some(at)) {
+                            click_grip(app, g, m.shift);
+                        }
+                    }
+                    continue;
+                }
+                // A finger drag is an intentional CAD gesture: release supplies the next point.
+                if app.session.prompting() {
+                    press_at(app, &xf, ui.ctx(), pos, mods);
+                } else if p.opened_window && app.session.settings.pickdrag && app.session.pending_window.is_some() {
+                    let end = xf.to_world(pos);
+                    if let Err(e) = app.session.idle_click(end, mods.shift) { app.session.echo(e.to_string()); }
+                }
+            }
+            press::Step::TouchDown(_) | press::Step::TouchUp(_) | press::Step::TouchCancel => {
                 // Defensive fallback: native phases should have been normalized above. If a
                 // future event path bypasses normalization, discard it rather than panic.
                 app.canvas.touch_pending = None;
             }
         }
     }
-    if !primary_down {
-        // The button came up where we didn't see it (outside the window, say).
+    if !primary_down && app.canvas.touch_pending.is_none() && !native_touch_event {
+        // A native finger may not be represented by egui's synthetic primary-button state.
+        // Keep its press alive while processing a native touch frame, including a complete
+        // down/move/up sequence delivered together by Android.
         app.canvas.press = None;
     }
     click_used

@@ -474,6 +474,35 @@ fn the_cycling_badge_follows_the_frozen_layers_under_a_resting_pointer() {
 }
 
 #[test]
+fn mobile_touch_drag_draws_and_commits_a_line_on_finger_release() {
+    let mut app = CadApp::new(cadcraft_engine::Session::new(), crate::Services::default());
+    let ctx = egui::Context::default();
+    let screen = Rect::from_min_size(Pos2::ZERO, vec2(1400.0, 900.0));
+    let _ = painted_text(&mut app, &ctx, screen.center());
+    app.session.cmdline("line").unwrap();
+    let xf = app.canvas.xf.unwrap();
+    let start = xf.to_screen(Vec2::ZERO);
+    let end = xf.to_screen(Vec2::new(10.0, 10.0));
+    let before = app.session.doc().unwrap().model.handles().len();
+    let events = vec![
+        egui::Event::PointerMoved(end),
+        egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::Start, pos: start, force: None },
+        egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::Move, pos: end, force: None },
+        egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::End, pos: end, force: None },
+    ];
+    let mut output = ctx.run_ui(
+        egui::RawInput { screen_rect: Some(screen), events, ..Default::default() },
+        |ui| {
+            app.logic(ui.ctx());
+            app.ui(ui);
+        },
+    );
+    output.textures_delta.clear();
+    let after = app.session.doc().unwrap().model.handles().len();
+    assert_eq!(after, before + 1, "one finger drag must create exactly one line");
+}
+
+#[test]
 fn native_touch_tap_is_committed_on_release_without_waiting_for_delay() {
     let at = egui::pos2(12.0, 18.0);
     let mut pending = None;
@@ -502,7 +531,55 @@ fn native_touch_move_is_buffered_until_single_finger_gesture_is_recognized() {
     assert_eq!(pending.map(|p| p.latest), Some(Some(moved)));
 
     let second = normalize_touch_steps(Vec::new(), &mut pending, 1.0 + TOUCH_GESTURE_DELAY, egui::Modifiers::NONE);
-    assert_eq!(second, vec![press::Step::Down(origin, egui::Modifiers::NONE), press::Step::Move(moved)]);
+    assert_eq!(second, vec![press::Step::Down(origin, egui::Modifiers::NONE), press::Step::TouchMove(moved)]);
+    assert!(pending.is_some_and(|contact| contact.recognized), "recognized contact must remain active until its matching finger-up");
+}
+
+#[test]
+fn native_touch_drag_commits_second_point_on_release() {
+    let origin = egui::pos2(12.0, 18.0);
+    let moved = egui::pos2(30.0, 44.0);
+    let mut pending = None;
+    let steps = normalize_touch_steps(
+        vec![press::Step::TouchDown(origin), press::Step::TouchMove(moved), press::Step::TouchUp(moved)],
+        &mut pending,
+        1.0,
+        egui::Modifiers::NONE,
+    );
+    assert_eq!(steps, vec![
+        press::Step::Down(origin, egui::Modifiers::NONE),
+        press::Step::TouchMove(moved),
+        press::Step::TouchDragEnd(moved),
+    ]);
+    assert!(pending.is_none());
+}
+
+#[test]
+fn native_touch_tap_does_not_create_a_second_point() {
+    let at = egui::pos2(12.0, 18.0);
+    let mut pending = None;
+    let steps = normalize_touch_steps(
+        vec![press::Step::TouchDown(at), press::Step::TouchUp(at)],
+        &mut pending,
+        1.0,
+        egui::Modifiers::NONE,
+    );
+    assert_eq!(steps, vec![press::Step::Down(at, egui::Modifiers::NONE), press::Step::Up(at)]);
+}
+
+#[test]
+fn recognized_touch_keeps_move_and_release_events_until_finger_lifts() {
+    let origin = egui::pos2(12.0, 18.0);
+    let moved = egui::pos2(30.0, 44.0);
+    let mut pending = None;
+    let first = normalize_touch_steps(vec![press::Step::TouchDown(origin)], &mut pending, 1.0, egui::Modifiers::NONE);
+    assert!(first.is_empty());
+    let recognized = normalize_touch_steps(Vec::new(), &mut pending, 1.0 + TOUCH_GESTURE_DELAY, egui::Modifiers::NONE);
+    assert_eq!(recognized, vec![press::Step::Down(origin, egui::Modifiers::NONE)]);
+    let moving = normalize_touch_steps(vec![press::Step::TouchMove(moved)], &mut pending, 1.2, egui::Modifiers::NONE);
+    assert_eq!(moving, vec![press::Step::TouchMove(moved)]);
+    let released = normalize_touch_steps(vec![press::Step::TouchUp(moved)], &mut pending, 1.3, egui::Modifiers::NONE);
+    assert_eq!(released, vec![press::Step::TouchDragEnd(moved)]);
     assert!(pending.is_none());
 }
 
