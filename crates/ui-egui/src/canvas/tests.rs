@@ -491,7 +491,7 @@ fn mobile_touch_drag_draws_and_commits_a_line_on_finger_release() {
         egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::End, pos: end, force: None },
     ];
     let mut output = ctx.run_ui(
-        egui::RawInput { screen_rect: Some(screen), events, ..Default::default() },
+        egui::RawInput { screen_rect: Some(screen), events, focused: true, ..Default::default() },
         |ui| {
             app.logic(ui.ctx());
             app.ui(ui);
