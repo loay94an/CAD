@@ -474,6 +474,35 @@ fn the_cycling_badge_follows_the_frozen_layers_under_a_resting_pointer() {
 }
 
 #[test]
+fn mobile_touch_drag_draws_and_commits_a_line_on_finger_release() {
+    let mut app = CadApp::new(cadcraft_engine::Session::new(), crate::Services::default());
+    let ctx = egui::Context::default();
+    let screen = Rect::from_min_size(Pos2::ZERO, vec2(1400.0, 900.0));
+    let _ = painted_text(&mut app, &ctx, screen.center());
+    app.session.cmdline("line").unwrap();
+    let xf = app.canvas.xf.unwrap();
+    let start = xf.to_screen(Vec2::ZERO);
+    let end = xf.to_screen(Vec2::new(10.0, 10.0));
+    let before = app.session.doc().unwrap().model.handles().len();
+    let events = vec![
+        egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::Start, pos: start, force: None },
+        egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::Move, pos: end, force: None },
+        egui::Event::Touch { device_id: egui::TouchDeviceId(0), id: egui::TouchId(7), phase: egui::TouchPhase::End, pos: end, force: None },
+    ];
+    let mut output = ctx.run_ui(
+        egui::RawInput { screen_rect: Some(screen), events, ..Default::default() },
+        |ui| {
+            app.logic(ui.ctx());
+            app.ui(ui);
+        },
+    );
+    output.textures_delta.clear();
+    let after = app.session.doc().unwrap().model.handles().len();
+    assert_eq!(after, before + 1, "one finger drag must create exactly one line");
+    assert!(!app.session.prompting(), "the line command should finish after the release point");
+}
+
+#[test]
 fn native_touch_tap_is_committed_on_release_without_waiting_for_delay() {
     let at = egui::pos2(12.0, 18.0);
     let mut pending = None;
