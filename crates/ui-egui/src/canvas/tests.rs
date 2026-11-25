@@ -502,7 +502,7 @@ fn native_touch_move_is_buffered_until_single_finger_gesture_is_recognized() {
     assert_eq!(pending.map(|p| p.latest), Some(Some(moved)));
 
     let second = normalize_touch_steps(Vec::new(), &mut pending, 1.0 + TOUCH_GESTURE_DELAY, egui::Modifiers::NONE);
-    assert_eq!(second, vec![press::Step::Down(origin, egui::Modifiers::NONE), press::Step::Move(moved)]);
+    assert_eq!(second, vec![press::Step::Down(origin, egui::Modifiers::NONE), press::Step::TouchMove(moved)]);
     assert!(pending.is_none());
 }
 
