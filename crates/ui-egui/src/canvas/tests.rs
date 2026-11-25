@@ -507,6 +507,54 @@ fn native_touch_move_is_buffered_until_single_finger_gesture_is_recognized() {
 }
 
 #[test]
+fn native_touch_drag_commits_second_point_on_release() {
+    let origin = egui::pos2(12.0, 18.0);
+    let moved = egui::pos2(30.0, 44.0);
+    let mut pending = None;
+    let steps = normalize_touch_steps(
+        vec![press::Step::TouchDown(origin), press::Step::TouchMove(moved), press::Step::TouchUp(moved)],
+        &mut pending,
+        1.0,
+        egui::Modifiers::NONE,
+    );
+    assert_eq!(steps, vec![
+        press::Step::Down(origin, egui::Modifiers::NONE),
+        press::Step::TouchMove(moved),
+        press::Step::TouchDragEnd(moved),
+    ]);
+    assert!(pending.is_none());
+}
+
+#[test]
+fn native_touch_tap_does_not_create_a_second_point() {
+    let at = egui::pos2(12.0, 18.0);
+    let mut pending = None;
+    let steps = normalize_touch_steps(
+        vec![press::Step::TouchDown(at), press::Step::TouchUp(at)],
+        &mut pending,
+        1.0,
+        egui::Modifiers::NONE,
+    );
+    assert_eq!(steps, vec![press::Step::Down(at, egui::Modifiers::NONE), press::Step::Up(at)]);
+}
+
+#[test]
+fn recognized_touch_keeps_move_and_release_events_until_finger_lifts() {
+    let origin = egui::pos2(12.0, 18.0);
+    let moved = egui::pos2(30.0, 44.0);
+    let mut pending = None;
+    let first = normalize_touch_steps(vec![press::Step::TouchDown(origin)], &mut pending, 1.0, egui::Modifiers::NONE);
+    assert!(first.is_empty());
+    let recognized = normalize_touch_steps(Vec::new(), &mut pending, 1.0 + TOUCH_GESTURE_DELAY, egui::Modifiers::NONE);
+    assert_eq!(recognized, vec![press::Step::Down(origin, egui::Modifiers::NONE)]);
+    let moving = normalize_touch_steps(vec![press::Step::TouchMove(moved)], &mut pending, 1.2, egui::Modifiers::NONE);
+    assert_eq!(moving, vec![press::Step::TouchMove(moved)]);
+    let released = normalize_touch_steps(vec![press::Step::TouchUp(moved)], &mut pending, 1.3, egui::Modifiers::NONE);
+    assert_eq!(released, vec![press::Step::TouchDragEnd(moved)]);
+    assert!(pending.is_none());
+}
+
+#[test]
 fn native_touch_cancel_discards_a_buffered_first_contact() {
     let origin = egui::pos2(12.0, 18.0);
     let mut pending = None;
